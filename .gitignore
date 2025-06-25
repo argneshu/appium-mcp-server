@@ -1,0 +1,47 @@
+node_modules/
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE settings
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# macOS
+.DS_Store
+
+# MCP tokens
+.mcp/
+
+# Build artifacts
+*.egg-info/
+*.tar.gz
+*.whl
