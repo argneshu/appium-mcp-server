@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that provides Appium mobile automation cap
 
 ## Prerequisites
 
-- **Python 3.8+** installed on your system
+- **Python 3.10+** installed on your system
 - **Node.js 16+** (for npx usage)
 - **Appium Server** running on `http://localhost:4723`
 - **Mobile devices/simulators** configured and accessible
