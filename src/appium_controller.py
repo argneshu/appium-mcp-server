@@ -31,6 +31,7 @@ element_store = {}
 
 def start_session(platform: str, device_name: str, app_path: str = "",  bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "") -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}")
+    print("🚀 MCP Server: Running from local-mcp-server")
 
     """
     Start an Appium session with proper Options configuration
@@ -93,6 +94,7 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
             driver.implicitly_wait(5)
         
         # Try switching context to webview
+            driver.implicitly_wait(5)
             contexts = driver.contexts
             print(f"DEBUG: Available contexts: {contexts}")
             for ctx in contexts:
@@ -100,6 +102,9 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
                     print(f"DEBUG: Switching to context: {ctx}")
                     driver.switch_to.context(ctx)
                     break
+
+            print(f"DEBUG: Navigating to URL: {start_url}")
+            driver.get(start_url)
 
         
         return {
