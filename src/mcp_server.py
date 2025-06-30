@@ -244,10 +244,11 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
 async def main():
     """Main function to run the MCP server."""
-    print("🚀 Starting Appium MCP Server...")
+    EXPECTED_VERSION = "0.1.12"
+    print("🚀 Starting Appium MCP Server on {EXPECTED_VERSION}..")
     
     async with stdio_server() as (read_stream, write_stream):
-        print("✅ MCP Server is running and ready for connections!")
+        print(f"✅ MCP server booting with version {EXPECTED_VERSION}")
         await server.run(
             read_stream,
             write_stream,
