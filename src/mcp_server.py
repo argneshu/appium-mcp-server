@@ -19,7 +19,8 @@ from appium_controller import (
     tap_element,
     input_text,
     get_page_source,
-    scroll
+    scroll,
+    get_text
 )
 
 # Create the server instance
@@ -130,7 +131,21 @@ async def handle_list_tools() -> list[Tool]:
                     }   
                 },
         "required": []
-         }
+            }
+        ),
+        Tool(
+            name="appium_get_text",
+            description="Get the visible text content of an element",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "element_id": {
+                        "type": "string",
+                        "description": "Element ID to retrieve text from"
+                    }
+                },
+                "required": ["element_id"]
+            }
         ),
         Tool(
             name="appium_tap_element",
@@ -200,6 +215,11 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     elif name == "appium_scroll":
         direction = arguments.get("direction", "down")
         result = scroll(direction)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
+    elif name == "appium_get_text":
+        element_id = arguments.get("element_id")
+        result = get_text(element_id)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     else:

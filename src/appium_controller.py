@@ -340,6 +340,40 @@ def scroll(direction: str = "down") -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
+def get_text(element_id: str) -> dict:
+    """
+    Retrieve the text content of a previously located element.
+    """
+    try:
+        if not active_session.get("driver"):
+            return {
+                "status": "error",
+                "message": "No active session. Please start a session first."
+            }
+
+        element = element_store.get(element_id)
+        if not element:
+            return {
+                "status": "error",
+                "message": f"No element found with ID: {element_id}"
+            }
+
+        text = element.text
+        return {
+            "status": "success",
+            "element_id": element_id,
+            "text": text,
+            "message": f"Retrieved text from element: {text}"
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": f"Failed to retrieve text: {str(e)}"
+        }
+
+    
 
 
 # Initialize the MCP server
@@ -448,6 +482,20 @@ async def handle_list_tools() -> list[Tool]:
                 }
             }
         ),
+         Tool(
+            name="appium_get_text",
+            description="Get the visible text content of an element",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "element_id": {
+                        "type": "string",
+                        "description": "Element ID to retrieve text from"
+                    }
+                },
+                "required": ["element_id"]
+            }
+        ),
 
         Tool(
             name="appium_quit_session",
@@ -511,6 +559,17 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         element_id = arguments.get("element_id")
         text = arguments.get("text")
         result = input_text(element_id, text)
+    
+    elif name == "appium_get_text":
+        element_id = arguments.get("element_id")
+
+        if not element_id:
+            result = {
+                "status": "error",
+                "message": "Missing required parameter: element_id"
+            }
+        else:
+            result = get_text(element_id)
 
     elif name == "appium_get_page_source":
         result = get_page_source()
