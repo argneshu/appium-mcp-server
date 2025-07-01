@@ -88,7 +88,6 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
         # Navigate to SauceDemo login page if testing in browser
         if getattr(options, "browser_name", None) and start_url:
             print(f"DEBUG: Navigating to URL: {start_url}")
-            driver.get(start_url)
 
         # Wait for page load
             driver.implicitly_wait(5)

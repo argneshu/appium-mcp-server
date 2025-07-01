@@ -45,3 +45,5 @@ npm-debug.log*python src/mcp_server.py
 *.egg-info/
 *.tar.gz
 *.whl
+
+appium-mcp-server-*.tgz
