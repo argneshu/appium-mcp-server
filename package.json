@@ -1,6 +1,6 @@
 {
   "name": "appium-mcp-server",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Claude-compatible MCP server for Appium (Android + iOS)",
   "bin": {
     "appium-mcp-server": "./bin/appium-mcp-server.js"
