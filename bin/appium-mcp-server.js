@@ -1,104 +1,78 @@
 #!/usr/bin/env node
 
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
 const venvDir = path.join(__dirname, "..", ".venv");
+const sitePackagesPath = path.join(
+  venvDir,
+  "lib",
+  "python3.12",
+  "site-packages"
+);
 
 // Try to find a compatible Python version (3.10+)
 const findCompatiblePython = () => {
   const candidates = [
     "python3.12",
-    "python3.11", 
+    "python3.11",
     "python3.10",
     "python3",
     "python"
   ];
-  
+
   for (const candidate of candidates) {
     try {
-      const result = require("child_process").execSync(`${candidate} --version 2>&1`, {
-        encoding: 'utf8',
-        stdio: 'pipe'
+      const result = execSync(`${candidate} --version`, {
+        encoding: "utf8",
+        stdio: "pipe"
       });
-      
-      const versionMatch = result.match(/Python (\d+)\.(\d+)/);
-      if (versionMatch) {
-        const major = parseInt(versionMatch[1]);
-        const minor = parseInt(versionMatch[2]);
-        
+
+      const match = result.match(/Python (\d+)\.(\d+)/);
+      if (match) {
+        const major = parseInt(match[1]);
+        const minor = parseInt(match[2]);
         if (major > 3 || (major === 3 && minor >= 10)) {
           console.error(`Using Python: ${candidate} (${result.trim()})`);
           return candidate;
         }
       }
-    } catch (e) {
-      // Command not found or failed, try next candidate
-      continue;
+    } catch (err) {
+      continue; // Try next candidate
     }
   }
-  
-  throw new Error("No compatible Python version found. Please install Python 3.10 or higher.");
+
+  throw new Error("❌ No compatible Python version (>=3.10) found.");
 };
 
+// Skip creating virtualenv on runtime, since .venv is bundled
 const ensureVirtualEnv = () => {
   return new Promise((resolve, reject) => {
-    if (!fs.existsSync(venvDir)) {
-      console.error("Creating Python virtual environment");
-      
-      let python;
-      try {
-        python = findCompatiblePython();
-      } catch (e) {
-        return reject(e.message);
-      }
-      
-      const venv = spawn(python, ["-m", "venv", venvDir]);
-
-      venv.on("close", (code) => {
-        if (code !== 0) return reject("Failed to create virtualenv");
-
-        console.error("Installing Python dependencies");
-        const pipPath = path.join(
-          venvDir,
-          process.platform === "win32" ? "Scripts" : "bin",
-          "pip"
-        );
-        const pipInstall = spawn(
-          pipPath,
-          ["install", "--quiet", "--disable-pip-version-check", "--no-input", "-r", "requirements.txt"],
-          {
-            cwd: path.join(__dirname, ".."),
-            stdio: ["ignore", process.stderr, process.stderr], // critical
-          }
-        );
-        pipInstall.on("close", (code2) => {
-          if (code2 !== 0) return reject("Failed to install dependencies");
-          resolve();
-        });
-      });
-    } else {
-      resolve();
+    if (!fs.existsSync(sitePackagesPath)) {
+      return reject("❌ site-packages not found in bundled .venv. Did you forget to shrink and include it?");
     }
+    resolve();
   });
 };
 
 const startPythonServer = () => {
-  // Use APP_MCP_PYTHON env var if defined, otherwise fallback to .venv/bin/python
-  const pythonPath = process.env.APP_MCP_PYTHON || path.join(
-    venvDir,
-    process.platform === "win32" ? "Scripts" : "bin",
-    "python"
-  );
   const serverScript = path.join(__dirname, "..", "src", "mcp_server.py");
+  const systemPython = process.env.APP_MCP_PYTHON || findCompatiblePython();
 
-  const server = spawn(pythonPath, [serverScript], {
+  console.error(`🚀 Starting MCP server using ${systemPython}`);
+  console.error(`🔧 Injecting PYTHONPATH = ${sitePackagesPath}`);
+
+  const server = spawn(systemPython, [serverScript], {
     stdio: "inherit",
+    env: {
+      ...process.env,
+      PYTHONPATH: sitePackagesPath
+    }
   });
 
   server.on("close", (code) => {
-    console.error(`MCP server exited with code ${code}`);
+    console.error(`❌ MCP server exited with code ${code}`);
   });
 };
 
@@ -106,7 +80,7 @@ const startPythonServer = () => {
   try {
     await ensureVirtualEnv();
     startPythonServer();
-  } catch (e) {
-    console.error("MCP server failed to start:", e);
+  } catch (err) {
+    console.error("🚨 MCP server failed to start:", err);
   }
 })();
