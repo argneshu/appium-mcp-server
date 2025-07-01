@@ -19,7 +19,7 @@ find "$SITE_PACKAGES" -type d -name "__pycache__" -exec rm -rf {} +
 find "$SITE_PACKAGES" -type d -name "tests" -exec rm -rf {} +
 
 # 3. Keep only mcp-*.dist-info, remove all others
-find "$SITE_PACKAGES" -type d -name "*.dist-info" ! -name "mcp-*" -exec rm -rf {} +
+find "$SITE_PACKAGES" -type d -name "*.dist-info" ! -iname "mcp-*.dist-info" -exec rm -rf {} +
 
 # 4. Delete *.egg-info folders
 find "$SITE_PACKAGES" -type d -name "*.egg-info" -exec rm -rf {} +
