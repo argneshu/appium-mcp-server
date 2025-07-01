@@ -1,6 +1,10 @@
-.venv/
+# Ignore unwanted junk
 __pycache__/
 *.pyc
 .DS_Store
 .git/
 *.log
+
+# Allow .venv folder and its contents
+!.venv
+!.venv/**

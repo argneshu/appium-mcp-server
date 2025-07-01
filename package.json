@@ -6,7 +6,8 @@
     "appium-mcp-server": "./bin/appium-mcp-server.js"
   },
   "scripts": {
-    "start": "node ./bin/appium-mcp-server.js"
+    "start": "node ./bin/appium-mcp-server.js",
+    "postinstall": "echo '📦 Installing Python dependencies...' && (python3 -m pip install -r requirements.txt || echo '⚠️ Python dependencies not installed. Run manually: pip install -r requirements.txt')"
   },
   "author": "argneshu",
   "license": "MIT"
