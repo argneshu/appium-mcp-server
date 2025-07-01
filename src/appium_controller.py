@@ -29,42 +29,34 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "",  bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "") -> dict:
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "") -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
-    """
-    Start an Appium session with proper Options configuration
-    """
     try:
         if platform.lower() == "ios":
             print("Using XCUITestOptions approach")
-            # Use XCUITestOptions for iOS
             options = XCUITestOptions()
             options.platform_name = "iOS"
             options.device_name = device_name
-            options.platform_version = "17.0"  # Adjust as needed
+            options.platform_version = "17.0"
             options.automation_name = "XCUITest"
-             # Configure for app or browser
             if bundle_id:
                 options.bundle_id = bundle_id
             elif app_path:
                 options.app = app_path
             else:
-                # Default to Safari for iOS
                 options.browser_name = "Safari"
                 options.safari_allow_popups = True
                 options.safari_ignore_fraud_warning = True
-                
+
         elif platform.lower() == "android":
-            # Use UiAutomator2Options for Android
             options = UiAutomator2Options()
             options.platform_name = "Android"
             options.device_name = device_name
             options.automation_name = "UiAutomator2"
             options.chromedriver_autodownload = True
-            # Configure for app or browse
-            if  app_package and app_activity:
+            if app_package and app_activity:
                 options.app_package = app_package
                 options.app_activity = app_activity
             elif app_path:
@@ -73,39 +65,43 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
                 options.browser_name = "Chrome"
         else:
             raise ValueError(f"Unsupported platform: {platform}")
-        
-        # Additional common options
+
         options.new_command_timeout = 300
         options.no_reset = True
-        
-        # Create driver with options object
+
         driver = webdriver.Remote("http://localhost:4723", options=options)
-        
-        # Store session info
         active_session["driver"] = driver
         active_session["session_id"] = driver.session_id
 
-        # Navigate to SauceDemo login page if testing in browser
         if getattr(options, "browser_name", None) and start_url:
-            print(f"DEBUG: Navigating to URL: {start_url}")
+            import time
+            print(f"DEBUG: Waiting for Safari context before navigating to {start_url}")
+            time.sleep(3)  # Allow Safari to launch
 
-        # Wait for page load
-            driver.implicitly_wait(5)
-        
-        # Try switching context to webview
-            driver.implicitly_wait(5)
-            contexts = driver.contexts
-            print(f"DEBUG: Available contexts: {contexts}")
-            for ctx in contexts:
-                if "WEBVIEW" in ctx or "Safari" in ctx:
-                    print(f"DEBUG: Switching to context: {ctx}")
-                    driver.switch_to.context(ctx)
+            driver.implicitly_wait(10)
+            max_wait = 15
+            interval = 1
+            found_webview = False
+
+            for _ in range(max_wait):
+                contexts = driver.contexts
+                print(f"DEBUG: Available contexts: {contexts}")
+                for ctx in contexts:
+                    if "WEBVIEW" in ctx or "Safari" in ctx:
+                        print(f"DEBUG: Switching to context: {ctx}")
+                        driver.switch_to.context(ctx)
+                        found_webview = True
+                        break
+                if found_webview:
                     break
+                time.sleep(interval)
 
-            print(f"DEBUG: Navigating to URL: {start_url}")
-            driver.get(start_url)
+            if found_webview:
+                print(f"DEBUG: Navigating to URL: {start_url}")
+                driver.get(start_url)
+            else:
+                print("❌ No webview context found. Cannot navigate to URL.")
 
-        
         return {
             "status": "success",
             "session_id": driver.session_id,
@@ -114,9 +110,8 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
             "capabilities": options.to_capabilities(),
             "message": f"Started Appium session on {platform} for {device_name}"
         }
-           
+
     except Exception as e:
-        # Clean up on failure
         if active_session.get("driver"):
             try:
                 active_session["driver"].quit()
@@ -124,12 +119,13 @@ def start_session(platform: str, device_name: str, app_path: str = "",  bundle_i
                 pass
         active_session["driver"] = None
         active_session["session_id"] = None
-        
+
         return {
             "status": "error",
             "error_type": type(e).__name__,
             "message": f"Failed to start session: {str(e)}"
         }
+
     return {
         "status": "error",
         "message": "start_session ended unexpectedly without return"
