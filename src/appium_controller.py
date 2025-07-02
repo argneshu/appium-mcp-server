@@ -13,6 +13,8 @@ from pydantic import AnyUrl
 import mcp.types as types
 from selenium.common.exceptions import StaleElementReferenceException
 import time
+import re
+from bs4 import BeautifulSoup
 
 # Appium imports
 from appium import webdriver
@@ -239,6 +241,42 @@ def get_session_info() -> dict:
             "status": "error",
             "message": f"Failed to get session info: {str(e)}"
         }
+    
+
+
+def extract_selectors_from_page_source(max_elements: int = 25) -> dict:
+    try:
+        driver = active_session.get("driver")
+        if not driver:
+            return {"status": "error", "message": "No active session"}
+
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+
+        preview = []
+        for tag in soup.find_all(True):
+            if len(preview) >= max_elements:
+                break
+            info = {
+                "tag": tag.name,
+                "id": tag.get("id"),
+                "class": tag.get("class"),
+                "accessibility": tag.get("aria-label") or tag.get("aria-labelledby")
+            }
+            preview.append({k: v for k, v in info.items() if v})
+
+        return {
+            "status": "success",
+            "selectors": preview
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": f"Failed to extract selectors: {str(e)}"
+        }
+
 
 def quit_session() -> dict:
     """

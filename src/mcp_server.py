@@ -20,7 +20,8 @@ from appium_controller import (
     input_text,
     get_page_source,
     scroll,
-    get_text
+    get_text,
+    extract_selectors_from_page_source
 )
 
 # Create the server instance
@@ -70,7 +71,54 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["platform", "device_name"]
             }
         ),
-
+         Tool(
+            name="extract_selectors_from_page_source",
+            description="Extract a small preview of tag names, IDs, classes, and accessibility labels from the page source for faster inspection.",
+            inputSchema={
+                 "type": "object",
+                 "properties": {
+                        "max_elements": {
+                            "type": "integer",
+                            "description": "Maximum number of elements to preview (default 25)"
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="appium_find_element",
+            description="Find an element on the screen",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "strategy": {
+                        "type": "string",
+                        "description": "Locator strategy",
+                        "enum": ["id", "xpath", "class_name", "accessibility_id"]
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Locator value"
+                    }
+                },
+                "required": ["strategy", "value"]
+            }
+        ),
+        
+        Tool(
+            name="appium_tap_element",
+            description="Tap on an element",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "element_id": {
+                        "type": "string",
+                        "description": "Element ID to tap"
+                    }
+                },
+                "required": ["element_id"]
+            }
+        ),
         Tool(
             name="appium_input_text",
             description="Send text input to an element by ID or by strategy/value",
@@ -99,25 +147,19 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         Tool(
-            name="appium_find_element",
-            description="Find an element on the screen",
+            name="appium_get_text",
+            description="Get the visible text content of an element",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "strategy": {
+                    "element_id": {
                         "type": "string",
-                        "description": "Locator strategy",
-                        "enum": ["id", "xpath", "class_name", "accessibility_id"]
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Locator value"
+                        "description": "Element ID to retrieve text from"
                     }
                 },
-                "required": ["strategy", "value"]
+                "required": ["element_id"]
             }
         ),
-
         Tool(
             name="appium_scroll",
             description="Scroll the screen in the specified direction (down or up)",
@@ -133,21 +175,7 @@ async def handle_list_tools() -> list[Tool]:
         "required": []
             }
         ),
-        Tool(
-            name="appium_get_text",
-            description="Get the visible text content of an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "element_id": {
-                        "type": "string",
-                        "description": "Element ID to retrieve text from"
-                    }
-                },
-                "required": ["element_id"]
-            }
-        ),
-        Tool(
+         Tool(
             name="appium_get_page_source",
             description="Get the XML page source from the current screen",
             inputSchema={
@@ -161,21 +189,6 @@ async def handle_list_tools() -> list[Tool]:
                 "required": []
             }
         ),
-
-        Tool(
-            name="appium_tap_element",
-            description="Tap on an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "element_id": {
-                        "type": "string",
-                        "description": "Element ID to tap"
-                    }
-                },
-                "required": ["element_id"]
-            }
-        )
     ]
 
 @server.call_tool()
@@ -232,6 +245,12 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         direction = arguments.get("direction", "down")
         result = scroll(direction)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
+    elif name == "extract_selectors_from_page_source":
+        max_elements = arguments.get("max_elements", 25)
+        result = extract_selectors_from_page_source(max_elements=max_elements)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
     
     elif name == "appium_get_text":
         element_id = arguments.get("element_id")
