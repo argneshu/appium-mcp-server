@@ -314,13 +314,28 @@ def input_text(element_id: str = None, text: str = "", strategy: str = None, val
     
 def get_page_source() -> dict:
     try:
-        if not active_session.get("driver"):
+        driver = active_session.get("driver")
+        if not driver:
             return {"status": "error", "message": "No active session"}
 
-        source = active_session["driver"].page_source
-        return {"status": "success", "source": source}
+        source = driver.page_source
+
+        # ✅ Optional but smart: truncate large DOMs
+        if len(source) > 30000:
+            source = source[:30000] + "\n... [truncated]"
+
+        return {
+            "status": "success",
+            "page_source": source
+        }
+
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": str(e)
+        }
+
     
 def scroll(direction: str = "down") -> dict:
     try:
