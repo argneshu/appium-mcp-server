@@ -148,6 +148,14 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="appium_get_page_source",
+            description="Get the current page source of the app or browser",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
             name="appium_tap_element",
             description="Tap on an element",
             inputSchema={
