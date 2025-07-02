@@ -312,26 +312,20 @@ def input_text(element_id: str = None, text: str = "", strategy: str = None, val
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
-def get_page_source() -> dict:
+def get_page_source(full: bool = False) -> dict:
     try:
         driver = active_session.get("driver")
         if not driver:
-            return {
-                "status": "error",
-                "message": "No active session"
-            }
+            return {"status": "error", "message": "No active session"}
 
         source = driver.page_source
 
-        # ✅ Claude-safe: truncate if too long
-        max_len = 30000
-        if len(source) > max_len:
-            source = source[:max_len] + "\n... [truncated]"
+        if not full:
+            max_len = 30000
+            if len(source) > max_len:
+                source = source[:max_len] + "\n... [truncated]"
 
-        return {
-            "status": "success",
-            "page_source": source
-        }
+        return {"status": "success", "page_source": source}
 
     except Exception as e:
         return {
@@ -339,6 +333,7 @@ def get_page_source() -> dict:
             "error_type": type(e).__name__,
             "message": f"Failed to get page source: {str(e)}"
         }
+
 
 
     

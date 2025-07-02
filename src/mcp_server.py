@@ -149,12 +149,19 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="appium_get_page_source",
-            description="Get the current page source of the app or browser",
+            description="Get the XML page source from the current screen",
             inputSchema={
-                "type": "object",
-                "properties": {}
+                 "type": "object",
+                 "properties": {
+                        "full": {
+                            "type": "boolean",
+                            "description": "Whether to return the full page source (default is false/truncated)"
+                    }
+                },
+                "required": []
             }
         ),
+
         Tool(
             name="appium_tap_element",
             description="Tap on an element",
@@ -217,7 +224,8 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "appium_get_page_source":
-        result = get_page_source()
+        full = arguments.get("full", False)
+        result = get_page_source(full=full)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "appium_scroll":
