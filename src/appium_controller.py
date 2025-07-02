@@ -316,13 +316,17 @@ def get_page_source() -> dict:
     try:
         driver = active_session.get("driver")
         if not driver:
-            return {"status": "error", "message": "No active session"}
+            return {
+                "status": "error",
+                "message": "No active session"
+            }
 
         source = driver.page_source
 
-        # ✅ Optional but smart: truncate large DOMs
-        if len(source) > 30000:
-            source = source[:30000] + "\n... [truncated]"
+        # ✅ Claude-safe: truncate if too long
+        max_len = 30000
+        if len(source) > max_len:
+            source = source[:max_len] + "\n... [truncated]"
 
         return {
             "status": "success",
@@ -333,8 +337,9 @@ def get_page_source() -> dict:
         return {
             "status": "error",
             "error_type": type(e).__name__,
-            "message": str(e)
+            "message": f"Failed to get page source: {str(e)}"
         }
+
 
     
 def scroll(direction: str = "down") -> dict:
