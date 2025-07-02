@@ -312,6 +312,7 @@ def input_text(element_id: str = None, text: str = "", strategy: str = None, val
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
+
 def get_page_source(full: bool = False) -> dict:
     try:
         driver = active_session.get("driver")
@@ -321,11 +322,16 @@ def get_page_source(full: bool = False) -> dict:
         source = driver.page_source
 
         if not full:
-            max_len = 30000
+            # 🔐 Tighter Claude-safe truncation
+            source = source.encode("utf-8", errors="ignore").decode("utf-8")  # sanitize
+            max_len = 10000  # much safer default
             if len(source) > max_len:
                 source = source[:max_len] + "\n... [truncated]"
 
-        return {"status": "success", "page_source": source}
+        return {
+            "status": "success",
+            "page_source": source
+        }
 
     except Exception as e:
         return {
@@ -333,8 +339,6 @@ def get_page_source(full: bool = False) -> dict:
             "error_type": type(e).__name__,
             "message": f"Failed to get page source: {str(e)}"
         }
-
-
 
     
 def scroll(direction: str = "down") -> dict:
