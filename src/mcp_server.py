@@ -216,12 +216,31 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         app_package = arguments.get("app_package", "")
         app_activity = arguments.get("app_activity", "")
         start_url=arguments.get("start_url", "")
-        udid=arguments.get("udid", ""),
-        xcode_org_id=arguments.get("xcode_org_id", ""),
+        udid=arguments.get("udid", "")
+        xcode_org_id=arguments.get("xcode_org_id", "")
         wda_bundle_id=arguments.get("wda_bundle_id", "")
 
+            # Filter out empty/None values to avoid sending invalid udid etc.
+        kwargs = {
+            "platform": platform,
+            "device_name": device_name
+            }
+        optional_fields = {
+            "app_path": app_path,
+            "bundle_id": bundle_id,
+            "app_package": app_package,
+            "app_activity": app_activity,
+            "start_url": start_url,
+            "udid": udid,
+            "xcode_org_id": xcode_org_id,
+            "wda_bundle_id": wda_bundle_id
+            }
+        for key, value in optional_fields.items():
+            if value:  # skip empty string or None
+                kwargs[key] = value
+
         try:
-            result = start_session(platform, device_name, app_path, bundle_id, app_package, app_activity, start_url, udid, xcode_org_id,wda_bundle_id)
+            result = start_session(**kwargs)
             if result is None:
                 raise ValueError("start_session returned None unexpectedly")
         except Exception as e:
