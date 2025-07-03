@@ -62,7 +62,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             else:
                 print("⚠️ Unknown device_name format — not setting UDID")
 
-            if udid or device_name_looks_like_udid:
+            if udid_is_valid or device_name_looks_like_udid:
                 print(f"DEBUG: Real iOS device detected")
                 options.udid = udid or device_name
                 options.platform_version = "17.0"
@@ -71,10 +71,13 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                     options.xcode_org_id = xcode_org_id
                     options.xcode_signing_id = "iPhone Developer"
                     options.updated_wda_bundle_id = wda_bundle_id
-                    options.use_new_wda = True
+                    options.use_new_wda = False
                     options.start_iwdp = True
                     options.wda_launch_timeout = 60000
                     options.wda_connection_timeout = 60000
+                    options.no_reset = True
+                    options.show_xcode_log = True
+                    options.use_prebuilt_wda = True 
                 else:
                     print("Real device detected but xcode_org_id or wda_bundle_id not provided")
             elif udid:
