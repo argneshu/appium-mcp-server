@@ -219,6 +219,14 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         udid=arguments.get("udid", "")
         xcode_org_id=arguments.get("xcode_org_id", "")
         wda_bundle_id=arguments.get("wda_bundle_id", "")
+        xcode_signing_id = arguments.get("xcode_signing_id", "iPhone Developer")
+
+           # 🆕 WDA-related options with enforced defaults
+        use_new_wda = arguments.get("use_new_wda", False)
+        use_prebuilt_wda = arguments.get("use_prebuilt_wda", True)
+        skip_server_installation = arguments.get("skip_server_installation", True)
+        show_xcode_log = arguments.get("show_xcode_log", True)
+        no_reset = arguments.get("no_reset", True)
 
             # Filter out empty/None values to avoid sending invalid udid etc.
         kwargs = {
@@ -233,8 +241,18 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
             "start_url": start_url,
             "udid": udid,
             "xcode_org_id": xcode_org_id,
-            "wda_bundle_id": wda_bundle_id
+            "wda_bundle_id": wda_bundle_id,
+            "xcode_signing_id": xcode_signing_id
             }
+        if udid:
+            optional_fields.update({
+            "use_new_wda": use_new_wda,
+            "use_prebuilt_wda": use_prebuilt_wda,
+            "skip_server_installation": skip_server_installation,
+            "show_xcode_log": show_xcode_log,
+            "no_reset": no_reset
+        })
+
         for key, value in optional_fields.items():
             if value:  # skip empty string or None
                 kwargs[key] = value
