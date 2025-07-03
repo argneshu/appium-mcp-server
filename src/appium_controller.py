@@ -43,12 +43,26 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.device_name = device_name
             options.platform_version = "17.0"
             options.automation_name = "XCUITest"
-            is_real_device = (
-                (len(device_name) == 25 and device_name.count('-') == 4) or
-                (len(device_name) == 40 and all(c in '0123456789abcdefABCDEF' for c in device_name))
-            ) or bool(udid)
+            
+            udid_is_valid = bool(udid) and isinstance(udid, str)
+            device_name_looks_like_udid = (
+                isinstance(device_name, str) and (
+                    (len(device_name) == 25 and device_name.count("-") == 4) or
+                    (len(device_name) == 40 and all(c in "0123456789abcdefABCDEF" for c in device_name))
+                )
+            )
+            if udid_is_valid:
+                print("DEBUG: Explicit UDID provided — setting udid")
+                options.udid = udid
+            elif device_name_looks_like_udid:
+                print("DEBUG: Device name looks like UDID — assuming real device")
+                options.udid = device_name
+            elif device_name.lower().startswith("iphone") or device_name.lower().startswith("ipad"):
+                print("DEBUG: iOS Simulator detected")
+            else:
+                print("⚠️ Unknown device_name format — not setting UDID")
 
-            if is_real_device:
+            if udid or device_name_looks_like_udid:
                 print(f"DEBUG: Real iOS device detected")
                 options.udid = udid or device_name
                 options.platform_version = "17.0"
