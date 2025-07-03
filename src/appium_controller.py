@@ -63,8 +63,11 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                     options.wda_connection_timeout = 60000
                 else:
                     print("Real device detected but xcode_org_id or wda_bundle_id not provided")
+            elif udid:
+                print(f"DEBUG: Simulator with explicit UDID: {udid}")
+                options.udid = udid
             else:
-                print("DEBUG: iOS simulator detected")
+                print("DEBUG: iOS simulator without UDID — letting Appium choose")
                 options.platform_version = "17.0"
 
             if bundle_id:
@@ -89,8 +92,11 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                 print("DEBUG: Real Android device detected")
                 options.udid = udid or device_name
                 options.system_port = 8200
+            elif udid:
+                print(f"DEBUG: Android emulator with explicit UDID: {udid}")
+                options.udid = udid
             else:
-                print("DEBUG: Android emulator detected")
+                print("DEBUG: Android emulator without UDID — letting Appium choose")
 
             if app_package and app_activity:
                 options.app_package = app_package
