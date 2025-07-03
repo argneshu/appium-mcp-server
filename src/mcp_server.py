@@ -23,9 +23,16 @@ from appium_controller import (
     get_text,
     extract_selectors_from_page_source
 )
+import os
+import pathlib
 
 # Create the server instance
 server = Server("appium-mcp-server")
+
+# Add new FILE TOOL after mcp is created
+PROJECT_ROOT = pathlib.Path.home() / "generated-framework"
+PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
+
 
 @server.list_tools()
 async def handle_list_tools() -> list[Tool]:
@@ -201,12 +208,39 @@ async def handle_list_tools() -> list[Tool]:
                 "required": []
             }
         ),
+        Tool(
+            name="write_file",
+            description="Write a file under ~/generated-framework/<path>",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path inside project"},
+                    "content": {"type": "string", "description": "File content"}
+                },
+                "required": ["path", "content"]
+            }
+        )
     ]
 
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls for Appium operations."""
     print(f"DEBUG: ANY tool call received: name={name}, args={arguments}")
+
+
+    # ✅ NEW TOOL HANDLER: write_file
+    if name == "write_file":
+        path = arguments.get("path")
+        content = arguments.get("content")
+
+        try:
+            target_path = PROJECT_ROOT / path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return [TextContent(type="text", text=f"✅ File written to: {target_path}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Failed to write file: {str(e)}")]
 
     if name == "appium_start_session":
         platform = arguments.get("platform")
