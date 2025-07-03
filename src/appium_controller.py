@@ -31,7 +31,7 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "") -> dict:
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True) -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
@@ -71,13 +71,15 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                     options.xcode_org_id = xcode_org_id
                     options.xcode_signing_id = "iPhone Developer"
                     options.updated_wda_bundle_id = wda_bundle_id
-                    options.use_new_wda = False
+                    options.use_new_wda = use_new_wda
+                    options.use_prebuilt_wda = use_prebuilt_wda
+                    options.skip_server_installation = skip_server_installation
+                    options.show_xcode_log = show_xcode_log
+                    options.no_reset = no_reset
                     options.start_iwdp = True
                     options.wda_launch_timeout = 60000
                     options.wda_connection_timeout = 60000
-                    options.no_reset = True
-                    options.show_xcode_log = True
-                    options.use_prebuilt_wda = True 
+        
                 else:
                     print("Real device detected but xcode_org_id or wda_bundle_id not provided")
             elif udid:
