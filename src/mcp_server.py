@@ -32,46 +32,58 @@ async def handle_list_tools() -> list[Tool]:
     print("DEBUG: list_tools called - returning available tools")
     """List available tools for Appium automation."""
     return [
-        Tool(
+       Tool(
             name="appium_start_session",
             description="Start an Appium session with desired capabilities",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "platform": {
-                        "type": "string",
-                        "description": "Platform name (iOS/Android)",
-                        "enum": ["iOS", "Android"]
-                    },
-                    "device_name": {
-                        "type": "string",
-                        "description": "Device name or UDID"
-                    },
-                    "app_path": {
-                        "type": "string",
-                        "description": "Path to the application"
-                    },
-                    "bundle_id": {
-                        "type": "string",
-                        "description": "iOS bundle ID to launch an installed app"
-                    },
-                    "app_package": {
-                        "type": "string",
-                        "description": "Android app package name"
-                    },
-                    "app_activity": {
-                        "type": "string",
-                        "description": "Android app activity name"
-                    },
-                    "start_url": {
-                        "type": "string",
-                        "description": "Optional: URL to navigate if browser is launched"
+                "type": "string",
+                "description": "Platform name (iOS/Android)",
+                "enum": ["iOS", "Android"]
+              },
+              "device_name": {
+                "type": "string",
+                "description": "Device name or UDID"
+             },
+            "app_path": {
+                "type": "string",
+                "description": "Path to the application"
+            },
+            "bundle_id": {
+                "type": "string",
+                "description": "iOS bundle ID to launch an installed app"
+            },
+            "app_package": {
+                "type": "string",
+                "description": "Android app package name"
+            },
+            "app_activity": {
+                "type": "string",
+                "description": "Android app activity name"
+            },
+            "start_url": {
+                "type": "string",
+                "description": "Optional: URL to navigate if browser is launched"
+            },
+             "udid": {
+                 "type": "string",
+                 "description": "UDID of the real device (optional, inferred from device_name if missing)"
+             },
+                "xcode_org_id": {
+                "type": "string",
+                "description": "Apple Developer Team ID (iOS real device only)"
+             },
+                "wda_bundle_id": {
+                    "type": "string",
+                    "description": "Updated WDA bundle ID for iOS real device"
                     }
                 },
                 "required": ["platform", "device_name"]
-            }
+             }
         ),
-         Tool(
+        Tool(
             name="extract_selectors_from_page_source",
             description="Extract a small preview of tag names, IDs, classes, and accessibility labels from the page source for faster inspection.",
             inputSchema={
@@ -204,9 +216,12 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         app_package = arguments.get("app_package", "")
         app_activity = arguments.get("app_activity", "")
         start_url=arguments.get("start_url", "")
+        udid=arguments.get("udid", ""),
+        xcode_org_id=arguments.get("xcode_org_id", ""),
+        wda_bundle_id=arguments.get("wda_bundle_id", "")
 
         try:
-            result = start_session(platform, device_name, app_path, bundle_id, app_package, app_activity, start_url)
+            result = start_session(platform, device_name, app_path, bundle_id, app_package, app_activity, start_url, udid, xcode_org_id,wda_bundle_id)
             if result is None:
                 raise ValueError("start_session returned None unexpectedly")
         except Exception as e:

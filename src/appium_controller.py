@@ -31,8 +31,8 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "") -> dict:
-    print(f"DEBUG: start_session called with platform={platform}, device={device_name}")
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "") -> dict:
+    print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
     try:
@@ -43,6 +43,30 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.device_name = device_name
             options.platform_version = "17.0"
             options.automation_name = "XCUITest"
+            is_real_device = (
+                (len(device_name) == 25 and device_name.count('-') == 4) or
+                (len(device_name) == 40 and all(c in '0123456789abcdefABCDEF' for c in device_name))
+            ) or bool(udid)
+
+            if is_real_device:
+                print(f"DEBUG: Real iOS device detected")
+                options.udid = udid or device_name
+                options.platform_version = "17.0"
+
+                if xcode_org_id and wda_bundle_id:
+                    options.xcode_org_id = xcode_org_id
+                    options.xcode_signing_id = "iPhone Developer"
+                    options.updated_wda_bundle_id = wda_bundle_id
+                    options.use_new_wda = True
+                    options.start_iwdp = True
+                    options.wda_launch_timeout = 60000
+                    options.wda_connection_timeout = 60000
+                else:
+                    print("Real device detected but xcode_org_id or wda_bundle_id not provided")
+            else:
+                print("DEBUG: iOS simulator detected")
+                options.platform_version = "17.0"
+
             if bundle_id:
                 options.bundle_id = bundle_id
             elif app_path:
@@ -58,6 +82,16 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.device_name = device_name
             options.automation_name = "UiAutomator2"
             options.chromedriver_autodownload = True
+
+            is_real_device = len(device_name) > 8 and not device_name.startswith("emulator")
+
+            if is_real_device:
+                print("DEBUG: Real Android device detected")
+                options.udid = udid or device_name
+                options.system_port = 8200
+            else:
+                print("DEBUG: Android emulator detected")
+
             if app_package and app_activity:
                 options.app_package = app_package
                 options.app_activity = app_activity
