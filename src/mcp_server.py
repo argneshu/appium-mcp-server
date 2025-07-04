@@ -25,6 +25,7 @@ from appium_controller import (
 )
 import os
 import pathlib
+from tools.create_project_handler import handle_create_project_tool
 
 # Create the server instance
 server = Server("appium-mcp-server")
@@ -219,7 +220,36 @@ async def handle_list_tools() -> list[Tool]:
                 },
                 "required": ["path", "content"]
             }
-        )
+        ),
+        Tool(
+            name="create_project",
+            description="Scaffold a generic Java Maven + TestNG Appium project.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_name": {
+                    "type": "string",
+                    "description": "Root folder of the project (e.g. youtube-appium-tests)"
+                    },
+                "package": {
+                    "type": "string",
+                    "description": "Java base package (e.g. com.mycompany.app). If omitted, it is inferred."
+                    },
+                "pages": {
+                    "type": "array",
+                    "description": "Page object class names (without .java)",
+                    "items": { "type": "string" }
+                    },
+                "tests": {
+                    "type": "array",
+                    "description": "Test class names (without .java)",
+                    "items": { "type": "string" }
+                    }
+                },
+                "required": ["project_name"]
+            }
+        ),
+
     ]
 
 @server.call_tool()
@@ -342,6 +372,9 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         element_id = arguments.get("element_id")
         result = get_text(element_id)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
+    elif name == "create_project":
+        return handle_create_project_tool(arguments)
 
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
