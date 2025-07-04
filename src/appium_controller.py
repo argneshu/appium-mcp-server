@@ -31,7 +31,7 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True) -> dict:
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True) -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
@@ -69,7 +69,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
 
                 if xcode_org_id and wda_bundle_id:
                     options.xcode_org_id = xcode_org_id
-                    options.xcode_signing_id = "iPhone Developer"
+                    options.xcode_signing_id = xcode_signing_id or "iPhone Developer"
                     options.updated_wda_bundle_id = wda_bundle_id
                     options.use_new_wda = use_new_wda
                     options.use_prebuilt_wda = use_prebuilt_wda

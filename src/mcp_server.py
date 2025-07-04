@@ -79,14 +79,18 @@ async def handle_list_tools() -> list[Tool]:
                  "type": "string",
                  "description": "UDID of the real device (optional, inferred from device_name if missing)"
              },
-                "xcode_org_id": {
+            "xcode_org_id": {
                 "type": "string",
                 "description": "Apple Developer Team ID (iOS real device only)"
              },
-                "wda_bundle_id": {
-                    "type": "string",
-                    "description": "Updated WDA bundle ID for iOS real device"
-                    }
+            "wda_bundle_id": {
+                 "type": "string",
+                 "description": "Updated WDA bundle ID for iOS real device"
+            },
+            "xcode_signing_id": {
+                "type": "string",
+                "description": "Xcode signing identity (e.g. 'iPhone Developer')"
+            }
                 },
                 "required": ["platform", "device_name"]
              }
