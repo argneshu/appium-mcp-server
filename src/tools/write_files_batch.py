@@ -1,58 +1,49 @@
-import asyncio
-import pathlib
+import sys, asyncio, pathlib
 from mcp.types import TextContent
 
 PROJECT_ROOT = pathlib.Path.home() / "generated-framework"
 
 async def handle_write_files_batch(arguments: dict) -> TextContent:
     files = arguments.get("files", [])
-    batch_size = arguments.get("batch_size", 10)  # Optional override
-    retry_limit = arguments.get("retry_limit", 2)  # Max retries per file
+    batch_size = arguments.get("batch_size", 10)
+    retry_limit = arguments.get("retry_limit", 2)
 
     if not files:
-        return TextContent(type="text", text="⚠️ No files provided to write.")
+        return TextContent(type="text",
+                           text="⚠️ No files provided to write.")
 
-    total_files = len(files)
-    success_count = 0
-    failed_files = []
+    total, ok, failed = len(files), 0, []
 
-    # Split files into chunks of batch_size
-    for i in range(0, total_files, batch_size):
+    # Split into chunks
+    for i in range(0, total, batch_size):
         batch = files[i:i+batch_size]
-        print(f"🌀 Processing batch {i // batch_size + 1} with {len(batch)} file(s)...")
+        print(f"🌀 Batch {i//batch_size+1} / {len(batch)} files",
+              file=sys.stderr)          # 👉 stderr, not stdout
 
         for file in batch:
-            path = file.get("path")
-            content = file.get("content")
-
+            path, content = file.get("path"), file.get("content")
             if not path or content is None:
-                failed_files.append((path or "<missing>", "Missing path or content"))
+                failed.append((path or "<missing>", "Missing path/content"))
                 continue
 
-            full_path = PROJECT_ROOT / path
-            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full = PROJECT_ROOT / path
+            full.parent.mkdir(parents=True, exist_ok=True)
 
-            for attempt in range(1, retry_limit + 2):  # 1 original + N retries
+            for attempt in range(1, retry_limit + 2):
                 try:
-                    with open(full_path, "w", encoding="utf-8") as f:
-                        f.write(content)
-                    success_count += 1
-                    break  # Exit retry loop on success
+                    full.write_text(content, encoding="utf-8")
+                    ok += 1
+                    break
                 except Exception as e:
-                    print(f"❌ Attempt {attempt} failed for {path}: {e}")
-                    await asyncio.sleep(0.1)  # Small delay before retry
                     if attempt == retry_limit + 1:
-                        failed_files.append((path, str(e)))
+                        failed.append((path, str(e)))
+                    await asyncio.sleep(0.1)
 
-            await asyncio.sleep(0.05)  # Light delay to reduce overload
+            await asyncio.sleep(0.05)
 
-    # 📋 Summary message
-    summary_lines = [
-        f"✅ Successfully wrote {success_count}/{total_files} file(s) to ~/generated-framework."
-    ]
-    if failed_files:
-        summary_lines.append(f"❌ {len(failed_files)} file(s) failed:")
-        for path, err in failed_files:
-            summary_lines.append(f"- {path}: {err}")
+    summary = [f"✅ Wrote {ok}/{total} file(s) to ~/generated-framework"]
+    if failed:
+        summary.append(f"❌ {len(failed)} file(s) failed:")
+        summary += [f"- {p}: {err}" for p, err in failed]
 
-    return TextContent(type="text", text="\n".join(summary_lines))
+    return TextContent(type="text", text="\n".join(summary))
