@@ -26,6 +26,7 @@ from appium_controller import (
 import os
 import pathlib
 from tools.create_project_handler import handle_create_project_tool
+from tools.write_files_batch import handle_write_files_batch
 
 # Create the server instance
 server = Server("appium-mcp-server")
@@ -214,6 +215,28 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="write_files_batch",
+            description="Write multiple files at once under ~/generated-framework/<path>",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "files": {
+                    "type": "array",
+                    "description": "List of files to write with relative paths and content",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                        "path": {"type": "string", "description": "Relative path inside the project root"},
+                        "content": {"type": "string", "description": "Content to write to the file"}
+                        },
+                    "required": ["path", "content"]
+                    }
+                }
+            },
+                "required": ["files"]
+            }
+        ),
+        Tool(
             name="write_file",
             description="Write a file under ~/generated-framework/<path>",
             inputSchema={
@@ -379,6 +402,10 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "create_project":
         return handle_create_project_tool(arguments)
+    
+    elif name == "write_files_batch":
+        result_text = await handle_write_files_batch(arguments)
+        return [result_text]
 
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
