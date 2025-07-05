@@ -298,8 +298,12 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=f"✅ File written to: {target_path}")]
         except Exception as e:
             return [TextContent(type="text", text=f"❌ Failed to write file: {str(e)}")]
+         
+    elif name == "write_files_batch":
+        result_text = await handle_write_files_batch(arguments)
+        return [result_text]
 
-    if name == "appium_start_session":
+    elif name == "appium_start_session":
         platform = arguments.get("platform")
         device_name = arguments.get("device_name")
         app_path = arguments.get("app_path", "")
@@ -403,9 +407,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     elif name == "create_project":
         return handle_create_project_tool(arguments)
     
-    elif name == "write_files_batch":
-        result_text = await handle_write_files_batch(arguments)
-        return [result_text]
+    
 
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
