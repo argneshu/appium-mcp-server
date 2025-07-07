@@ -282,7 +282,7 @@ async def handle_list_tools() -> list[Tool]:
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls for Appium operations."""
-    print(f"DEBUG: ANY tool call received: name={name}, args={arguments}")
+    print(f"DEBUG: ANY tool call received: name={name}, args={arguments}, file=sys.stderr")
 
 
     # ✅ NEW TOOL HANDLER: write_file
