@@ -8,3 +8,7 @@ __pycache__/
 # Allow .venv folder and its contents
 !.venv
 !.venv/**
+
+# Exclude bootstrap scripts (dev-only)
+bootstrap.sh
+bootstrap.bat
