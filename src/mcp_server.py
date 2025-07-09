@@ -245,12 +245,15 @@ async def handle_list_tools() -> list[Tool]:
         Tool(
             name="appium_take_screenshot",
             description="Take a screenshot of the current screen and save it to a file",
-            input_schema={
+            inputSchema={
+                "type": "object",
+                "properties": {
                 "filename": {
-                "type": "string",
-                "description": "Filename to save the screenshot (e.g. screenshot.png)",
-                "default": "screenshot.png"
-                }
+                    "type": "string",
+                     "description": "Filename to save the screenshot (e.g. screenshot.png)"
+                    }
+                 },
+                "required": []
             }
         ),
         Tool(
@@ -427,7 +430,6 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "create_project":
         return handle_create_project_tool(arguments)
-    
     
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
