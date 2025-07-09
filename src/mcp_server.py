@@ -27,7 +27,6 @@ import os
 import pathlib
 from tools.create_project_handler import handle_create_project_tool
 from tools.write_files_batch import handle_write_files_batch
-from appium_helpers import ensure_appium_installed_and_running
 
 # Create the server instance
 server = Server("appium-mcp-server")
