@@ -21,12 +21,14 @@ from appium_controller import (
     get_page_source,
     scroll,
     get_text,
-    extract_selectors_from_page_source
+    extract_selectors_from_page_source,
+    take_screenshot
 )
 import os
 import pathlib
 from tools.create_project_handler import handle_create_project_tool
 from tools.write_files_batch import handle_write_files_batch
+
 
 # Create the server instance
 server = Server("appium-mcp-server")
@@ -241,6 +243,17 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="appium_take_screenshot",
+            description="Take a screenshot of the current screen and save it to a file",
+            input_schema={
+                "filename": {
+                "type": "string",
+                "description": "Filename to save the screenshot (e.g. screenshot.png)",
+                "default": "screenshot.png"
+                }
+            }
+        ),
+        Tool(
             name="write_file",
             description="Write a file under ~/generated-framework/<path>",
             inputSchema={
@@ -287,8 +300,7 @@ async def handle_list_tools() -> list[Tool]:
 async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls for Appium operations."""
     print(f"DEBUG: ANY tool call received: name={name}, args={arguments}, file=sys.stderr")
-
-
+   
     # ✅ NEW TOOL HANDLER: write_file
     if name == "write_file":
         path = arguments.get("path")
@@ -403,18 +415,20 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         max_elements = arguments.get("max_elements", 25)
         result = extract_selectors_from_page_source(max_elements=max_elements)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
-
     
     elif name == "appium_get_text":
         element_id = arguments.get("element_id")
         result = get_text(element_id)
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
     
+    elif name == "appium_take_screenshot":
+        result = take_screenshot(**arguments)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
     elif name == "create_project":
         return handle_create_project_tool(arguments)
     
     
-
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 

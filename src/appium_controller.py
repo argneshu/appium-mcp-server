@@ -14,6 +14,9 @@ import mcp.types as types
 from selenium.common.exceptions import StaleElementReferenceException
 import time
 import re
+import uuid
+import os
+from datetime import datetime
 from bs4 import BeautifulSoup
 
 # Appium imports
@@ -515,5 +518,44 @@ def get_latest_android_emulator_version() -> str:
     except Exception as e:
         print(f"⚠️ Failed to detect Android version: {e}")
         return "14.0"
+    
+
+def take_screenshot(filename: str = None) -> dict:
+    driver = active_session.get("driver")
+    if not driver:
+        return {"status": "error", "message": "No active session"}
+
+    # Auto-generate filename if not provided
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_id = uuid.uuid4().hex[:6]
+        filename = f"screenshot_{timestamp}_{unique_id}.png"
+
+    # Save to user's Desktop in a cross-platform way
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    os.makedirs(desktop_path, exist_ok=True)  # Ensure directory exists
+    save_path = os.path.join(desktop_path, filename)
+
+    try:
+        success = driver.save_screenshot(save_path)
+        if not success:
+            return {
+                "status": "error",
+                "message": "Appium driver failed to capture screenshot"
+            }
+
+        return {
+            "status": "success",
+            "filename": filename,
+            "path": save_path,
+            "message": f"📸 Screenshot saved at: {save_path}"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to take screenshot: {str(e)}"
+        }
+
+
 
 
