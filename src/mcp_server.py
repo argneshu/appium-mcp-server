@@ -124,7 +124,7 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {
                     "strategy": {
                         "type": "string",
-                        "description": "Locator strategy",
+                        "description": "Locator strategy: 'id' for unique IDs, 'xpath' for complex paths, 'class_name' for UI classes, 'accessibility_id' for accessibility labels",
                         "enum": ["id", "xpath", "class_name", "accessibility_id"]
                     },
                     "value": {
@@ -244,7 +244,7 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="appium_take_screenshot",
-            description="Take a screenshot of the current screen and save it to a file",
+            description="Use only when visual state must be captured. Do not use after every action.",
             inputSchema={
                 "type": "object",
                 "properties": {
