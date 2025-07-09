@@ -27,6 +27,7 @@ import os
 import pathlib
 from tools.create_project_handler import handle_create_project_tool
 from tools.write_files_batch import handle_write_files_batch
+from appium_helpers import ensure_appium_installed_and_running
 
 # Create the server instance
 server = Server("appium-mcp-server")
@@ -75,6 +76,10 @@ async def handle_list_tools() -> list[Tool]:
             "start_url": {
                 "type": "string",
                 "description": "Optional: URL to navigate if browser is launched"
+            },
+            "platform_version": {
+                "type": "string",
+                "description": "Optional: platform version (e.g. 17.0 for iOS, 14.0 for Android)"
             },
              "udid": {
                  "type": "string",
@@ -306,6 +311,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     elif name == "appium_start_session":
         platform = arguments.get("platform")
         device_name = arguments.get("device_name")
+        platform_version = arguments.get("platform_version", "")
         app_path = arguments.get("app_path", "")
         bundle_id = arguments.get("bundle_id", "")
         app_package = arguments.get("app_package", "")
@@ -326,7 +332,8 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
             # Filter out empty/None values to avoid sending invalid udid etc.
         kwargs = {
             "platform": platform,
-            "device_name": device_name
+            "device_name": device_name,
+            "platform_version": platform_version
             }
         optional_fields = {
             "app_path": app_path,

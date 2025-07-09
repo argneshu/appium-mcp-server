@@ -31,7 +31,7 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True) -> dict:
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True, platform_version: str = "") -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
@@ -42,7 +42,9 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.platform_name = "iOS"
             options.device_name = device_name
             options.platform_version = "17.0"
-            options.automation_name = "XCUITest"
+            if not platform_version:
+                platform_version = get_latest_ios_simulator_version()
+            options.automation_name = platform_version
             
             udid_is_valid = bool(udid) and isinstance(udid, str)
             device_name_looks_like_udid = (
@@ -101,6 +103,8 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
         elif platform.lower() == "android":
             options = UiAutomator2Options()
             options.platform_name = "Android"
+            if not platform_version:
+                platform_version = get_latest_android_emulator_version()
             options.device_name = device_name
             options.automation_name = "UiAutomator2"
             options.chromedriver_autodownload = True
@@ -488,4 +492,35 @@ def get_text(element_id: str) -> dict:
             "error_type": type(e).__name__,
             "message": f"Failed to retrieve text: {str(e)}"
         }
+    
+def get_latest_ios_simulator_version() -> str:
+    import subprocess
+    import re
+    try:
+        output = subprocess.check_output(["xcrun", "simctl", "list", "runtimes"], text=True)
+        versions = re.findall(r'iOS (\d+\.\d+)', output)
+        versions = sorted({float(v) for v in versions}, reverse=True)
+        return str(versions[0]) if versions else "17.0"
+    except Exception as e:
+        print(f"⚠️ Failed to detect iOS version from simctl: {e}")
+        return "17.0"
+    
+def get_latest_android_emulator_version() -> str:
+    import subprocess
+    import re
+    try:
+        output = subprocess.check_output(["emulator", "-list-avds"], text=True)
+        avds = output.strip().splitlines()
+        versions = []
+        for avd in avds:
+            avd_output = subprocess.check_output(["emulator", "-avd", avd, "-verbose"], stderr=subprocess.STDOUT, text=True)
+            match = re.search(r'API level (\d+)', avd_output)
+            if match:
+                versions.append(int(match.group(1)))
+        if versions:
+            latest_api = max(versions)
+            return f"{latest_api}.0"
+    except Exception as e:
+        print(f"⚠️ Failed to detect Android version: {e}")
+    return "14.0"  # fallback
 
