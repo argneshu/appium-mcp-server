@@ -43,7 +43,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.device_name = device_name
             if not platform_version:
                 platform_version = get_latest_ios_simulator_version()
-            options.automation_name = platform_version
+            options.automation_name = "XCUITest"
             
             udid_is_valid = bool(udid) and isinstance(udid, str)
             device_name_looks_like_udid = (
@@ -510,16 +510,10 @@ def get_latest_android_emulator_version() -> str:
     try:
         output = subprocess.check_output(["emulator", "-list-avds"], text=True)
         avds = output.strip().splitlines()
-        versions = []
-        for avd in avds:
-            avd_output = subprocess.check_output(["emulator", "-avd", avd, "-verbose"], stderr=subprocess.STDOUT, text=True)
-            match = re.search(r'API level (\d+)', avd_output)
-            if match:
-                versions.append(int(match.group(1)))
-        if versions:
-            latest_api = max(versions)
-            return f"{latest_api}.0"
+        versions = [int(re.search(r'API_(\d+)', avd).group(1)) for avd in avds if "API_" in avd]
+        return f"{max(versions)}.0" if versions else "14.0"
     except Exception as e:
         print(f"⚠️ Failed to detect Android version: {e}")
-    return "14.0"  # fallback
+        return "14.0"
+
 
