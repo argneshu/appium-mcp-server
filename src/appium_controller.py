@@ -41,7 +41,6 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options = XCUITestOptions()
             options.platform_name = "iOS"
             options.device_name = device_name
-            options.platform_version = "17.0"
             if not platform_version:
                 platform_version = get_latest_ios_simulator_version()
             options.automation_name = platform_version
