@@ -43,6 +43,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             options.device_name = device_name
             if not platform_version:
                 platform_version = get_latest_ios_simulator_version()
+            options.platform_version = platform_version
             options.automation_name = "XCUITest"
             
             udid_is_valid = bool(udid) and isinstance(udid, str)
@@ -88,7 +89,6 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                 options.udid = udid
             else:
                 print("DEBUG: iOS simulator without UDID — letting Appium choose")
-                options.platform_version = "17.0"
 
             if bundle_id:
                 options.bundle_id = bundle_id
