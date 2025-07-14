@@ -59,6 +59,7 @@ ImportError: ... incompatible architecture (have 'x86_64', need 'arm64')
 ✅ **Steps for M1/M2 Macs**:
 
 - 🧬 Clone the project
+- 🛠️ Run: `chmod +x bootstrap.sh`
 - 🛠️ Run: `./bootstrap.sh`
   - 🧹 Removes the prebuilt `.venv`
   - 🧱 Recreates `.venv` using native `arm64` Python
