@@ -48,6 +48,68 @@ Add this configuration to your Claude Desktop config file:
   }
 }
 ```
+### ⚙️ System Setup Instructions for Apple M1/M2 and Windows
+
+#### 🍎 Apple Silicon (M1/M2) – macOS
+
+Apple Silicon users **must rebuild the Python virtual environment** (`.venv`) locally to avoid architecture compatibility errors like:
+
+ImportError: ... incompatible architecture (have 'x86_64', need 'arm64')
+
+✅ **Steps for M1/M2 Macs**:
+
+- 🧬 Clone the project
+- 🛠️ Run: `./bootstrap.sh`
+  - 🧹 Removes the prebuilt `.venv`
+  - 🧱 Recreates `.venv` using native `arm64` Python
+  - 📦 Reinstalls all Python dependencies
+- 🔁 You only need to do this once, unless `.venv` is deleted or `requirements.txt` changes
+
+---
+
+#### 💻 Windows Users
+
+Windows users can use the bundled `.venv` **if compatible**, or regenerate it locally.
+
+✅ **Steps for Windows**:
+
+- 🧬 Clone the project
+- 🛠️ Run: `bootstrap.bat`
+  - 🧱 Creates a fresh `.venv` using your system’s Python (≥ 3.10)
+  - 📦 Installs all dependencies from `requirements.txt`
+- 🛑 Make sure Python is in your `PATH` and is version **≥ 3.10**
+
+---
+
+#### 🧪 Verify It Works
+
+After running the appropriate script, start the server with:
+
+```bash
+npx appium-mcp-server
+
+Or directly with:
+```bash
+node bin/appium-mcp-server.js
+
+You should see output like:
+🚀 Starting MCP server using python3.12
+🔧 Injecting PYTHONPATH = ...
+
+### 🧪 Using Claude Desktop with a Local Project
+
+To run your local version of the MCP server with Claude Desktop, update your Claude configuration like this:
+
+```json
+{
+  "mcpServers": {
+    "local-appium-mcp": {
+      "command": "node",
+      "args": ["/Users/argneshu.gupta/appium-mcp-server/bin/appium-mcp-server.js"]
+    }
+  }
+}
+
 
 ## Available Tools
 
