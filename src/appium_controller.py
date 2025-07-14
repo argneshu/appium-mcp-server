@@ -16,6 +16,11 @@ import time
 import re
 import uuid
 import os
+import subprocess
+import socket
+import urllib.request
+import json
+import platform
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -23,6 +28,7 @@ from bs4 import BeautifulSoup
 from appium import webdriver
 from appium.options.ios import XCUITestOptions
 from appium.options.android import UiAutomator2Options
+from appium.webdriver.common.appiumby import AppiumBy
 
 
 # Global session storage
@@ -34,7 +40,7 @@ active_session = {
 # Global store for WebElements
 element_store = {}
 
-def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True, platform_version: str = "") -> dict:
+def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True, platform_version: str = "",port: int = 4723) -> dict:
     print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
     print("🚀 MCP Server: Running from local-mcp-server")
 
@@ -135,8 +141,9 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
 
         options.new_command_timeout = 300
         options.no_reset = True
+        port = ensure_appium_installed_and_running()
 
-        driver = webdriver.Remote("http://localhost:4723", options=options)
+        driver = webdriver.Remote(f"http://localhost:{port}", options=options)
         active_session["driver"] = driver
         active_session["session_id"] = driver.session_id
 
@@ -556,6 +563,98 @@ def take_screenshot(filename: str = None) -> dict:
             "message": f"Failed to take screenshot: {str(e)}"
         }
 
+
+
+DEFAULT_APPIUM_PORT = 4723
+def ensure_appium_installed_and_running() -> int:
+    import subprocess, socket, os
+
+    port = DEFAULT_APPIUM_PORT
+    print(f"🔧 Using fixed Appium port: {port}")
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if sock.connect_ex(('localhost', port)) != 0:
+            print(f"🚀 Starting Appium on port {port}...")
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+            subprocess.Popen(
+                ["npx", "appium", "-p", str(port)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags
+            )
+        else:
+            print(f"✅ Appium already running on port {port}")
+
+    return port  # Always returns 4723
+
+
+def quit_session() -> dict:
+    """
+    Quit the current session
+    """
+    try:
+        if active_session.get("driver"):
+            active_session["driver"].quit()
+            session_id = active_session["session_id"]
+            active_session["driver"] = None
+            active_session["session_id"] = None
+            return {
+                "status": "success",
+                "message": f"Session {session_id} terminated successfully"
+            }
+        else:
+            return {
+                "status": "no_session",
+                "message": "No active session to quit"
+            }
+    except Exception as e:
+        # Force cleanup even if quit fails
+        active_session["driver"] = None
+        active_session["session_id"] = None
+        return {
+            "status": "error",
+            "message": f"Error quitting session: {str(e)}"
+        }
+    
+
+
+def grant_ios_permissions(bundle_id: str, permissions: list[str]) -> dict:
+    errors = []
+    for perm in permissions:
+        try:
+            subprocess.run(
+                ["xcrun", "simctl", "privacy", "booted", "grant", perm, bundle_id],
+                check=True
+            )
+        except subprocess.CalledProcessError:
+            errors.append(f"❌ Failed to grant {perm}")
+    return {
+        "status": "success" if not errors else "partial",
+        "granted": [p for p in permissions if p not in errors],
+        "errors": errors
+    }
+
+
+def handle_ios_alert():
+    driver = active_session.get("driver")
+    if not driver:
+        return {"status": "error", "message": "❌ No active Appium session"}
+
+    try:
+        alert = driver.switch_to.alert
+        alert_text = alert.text
+        print(f"🔔 Alert detected: {alert_text}")
+        alert.accept()
+        return {"status": "success", "message": "✅ Alert accepted"}
+    except Exception:
+        # Fallback: try tapping common alert buttons
+        try:
+            allow_button = driver.find_element(by=AppiumBy.ACCESSIBILITY_ID, value="Allow")
+            allow_button.click()
+            return {"status": "success", "message": "✅ Tapped 'Allow' button"}
+        except Exception:
+            return {"status": "error", "message": "⚠️ No system alert or 'Allow' button found"}
+        
 
 
 

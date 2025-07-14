@@ -22,12 +22,17 @@ from appium_controller import (
     scroll,
     get_text,
     extract_selectors_from_page_source,
-    take_screenshot
+    take_screenshot,
+    quit_session,
+    grant_ios_permissions,
+    handle_ios_alert
 )
 import os
 import pathlib
 from tools.create_project_handler import handle_create_project_tool
 from tools.write_files_batch import handle_write_files_batch
+from appium_controller import ensure_appium_installed_and_running
+
 
 
 # Create the server instance
@@ -37,6 +42,7 @@ server = Server("appium-mcp-server")
 PROJECT_ROOT = pathlib.Path.home() / "generated-framework"
 PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
 
+ensure_appium_installed_and_running()
 
 @server.list_tools()
 async def handle_list_tools() -> list[Tool]:
@@ -296,6 +302,40 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["project_name"]
             }
         ),
+        Tool(
+            name="appium_quit_session",
+            description="Quit the current Appium session",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+             "required": []
+            }
+        ),
+        Tool(
+          name="grant_ios_permissions",
+          description="Grant permissions to an iOS simulator app to bypass system alerts",
+          inputSchema={
+               "type": "object",
+               "properties": {
+                    "bundle_id": {"type": "string", "description": "Bundle ID of the app"},
+                    "permissions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Permissions to grant (e.g., ['camera', 'location'])"
+                }
+             },
+            "required": ["bundle_id", "permissions"]
+             }
+        ),
+        Tool(
+          name="appium_handle_ios_alert",
+          description="Tap the 'Allow' or equivalent button in system dialogs on iOS",
+          inputSchema={
+            "type": "object",
+            "properties": {},
+            "required": []
+            }
+        )
 
     ]
 
@@ -323,6 +363,11 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         return [result_text]
 
     elif name == "appium_start_session":
+        try:
+            quit_session()
+        except Exception:
+            pass
+        port = ensure_appium_installed_and_running()
         platform = arguments.get("platform")
         device_name = arguments.get("device_name")
         platform_version = arguments.get("platform_version", "")
@@ -336,6 +381,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         wda_bundle_id=arguments.get("wda_bundle_id", "")
         xcode_signing_id = arguments.get("xcode_signing_id", "iPhone Developer")
 
+
            # 🆕 WDA-related options with enforced defaults
         use_new_wda = arguments.get("use_new_wda", False)
         use_prebuilt_wda = arguments.get("use_prebuilt_wda", True)
@@ -347,8 +393,10 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         kwargs = {
             "platform": platform,
             "device_name": device_name,
-            "platform_version": platform_version
-            }
+            "platform_version": platform_version,
+            "port": port,
+        }
+
         optional_fields = {
             "app_path": app_path,
             "bundle_id": bundle_id,
@@ -430,6 +478,20 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "create_project":
         return handle_create_project_tool(arguments)
+    
+    elif name == "appium_quit_session":
+        result = quit_session()
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
+    elif name == "grant_ios_permissions":
+        bundle_id = arguments.get("bundle_id")
+        permissions = arguments.get("permissions", [])
+        result = grant_ios_permissions(bundle_id, permissions)
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    
+    elif name == "appium_handle_ios_alert":
+        result = handle_ios_alert()
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
     
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
