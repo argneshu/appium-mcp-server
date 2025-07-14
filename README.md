@@ -108,8 +108,8 @@ You should see output like:
 To run your **local version** of the MCP server with Claude Desktop, follow these steps:
 
 1. Open **Claude Desktop**
-2. Go to **Settings → Developer → Edit Config**
-3. This will open the `claude-config.json` file
+2. Go to **Settings → Developer → EditConfig button
+3. This will open the `desktip-claude-config.json` file
 4. Add the following configuration under `"mcpServers"`:
 
 ---
