@@ -59,6 +59,8 @@ ImportError: ... incompatible architecture (have 'x86_64', need 'arm64')
 ✅ **Steps for M1/M2 Macs**:
 
 - 🧬 Clone the project
+- 📂 Open Terminal
+- Navigate to your project repository
 - 🛠️ Run: `chmod +x bootstrap.sh`
 - 🛠️ Run: `./bootstrap.sh`
   - 🧹 Removes the prebuilt `.venv`
@@ -75,6 +77,8 @@ Windows users can use the bundled `.venv` **if compatible**, or regenerate it lo
 ✅ **Steps for Windows**:
 
 - 🧬 Clone the project
+- 📂 Open Command Prompt or PowerShell
+- 📁 Navigate to your project folder (e.g. `cd C:\Users\YourName\appium-mcp-server`)
 - 🛠️ Run: `bootstrap.bat`
   - 🧱 Creates a fresh `.venv` using your system’s Python (≥ 3.10)
   - 📦 Installs all dependencies from `requirements.txt`
@@ -84,13 +88,15 @@ Windows users can use the bundled `.venv` **if compatible**, or regenerate it lo
 
 #### 🧪 Verify It Works
 
-After running the appropriate script, start the server with:
+### 🧪 Starting the Server
+
+After running the appropriate setup script (`./bootstrap.sh` on macOS or `bootstrap.bat` on Windows), start the MCP server using either of the following:
 
 ```bash
 npx appium-mcp-server
 
-Or directly with:
-```bash
+Or run it directly from project path:
+
 node bin/appium-mcp-server.js
 
 You should see output like:
@@ -99,17 +105,38 @@ You should see output like:
 
 ### 🧪 Using Claude Desktop with a Local Project
 
-To run your local version of the MCP server with Claude Desktop, update your Claude configuration like this:
+To run your **local version** of the MCP server with Claude Desktop, follow these steps:
+
+1. Open **Claude Desktop**
+2. Go to **Settings → Developer → Edit Config**
+3. This will open the `claude-config.json` file
+4. Add the following configuration under `"mcpServers"`:
+
+---
+
+#### 🍎 macOS (Intel or Apple Silicon)
 
 ```json
 {
   "mcpServers": {
     "local-appium-mcp": {
       "command": "node",
-      "args": ["/Users/argneshu.gupta/appium-mcp-server/bin/appium-mcp-server.js"]
+      "args": ["/Users/your.name/appium-mcp-server/bin/appium-mcp-server.js"]
     }
   }
 }
+
+💻 Windows
+{
+  "mcpServers": {
+    "local-appium-mcp": {
+      "command": "node",
+      "args": ["C:\\Users\\your.name\\appium-mcp-server\\bin\\appium-mcp-server.js"]
+    }
+  }
+}
+
+📝 Replace /Users/your.name/... with the full path to your cloned project directory.
 
 
 ## Available Tools
