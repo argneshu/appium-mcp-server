@@ -29,6 +29,7 @@ from appium_controller import (
 )
 import os
 import pathlib
+import sys
 from tools.create_project_handler import handle_create_project_tool
 from tools.write_files_batch import handle_write_files_batch
 from appium_controller import ensure_appium_installed_and_running
@@ -42,11 +43,10 @@ server = Server("appium-mcp-server")
 PROJECT_ROOT = pathlib.Path.home() / "generated-framework"
 PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
 
-ensure_appium_installed_and_running()
 
 @server.list_tools()
 async def handle_list_tools() -> list[Tool]:
-    print("DEBUG: list_tools called - returning available tools")
+    print("DEBUG: list_tools called - returning available tools", file=sys.stderr)
     """List available tools for Appium automation."""
     return [
        Tool(
@@ -228,7 +228,12 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="write_files_batch",
-            description="Write multiple files at once under ~/generated-framework/<path>",
+            description=(
+                "Efficiently write multiple files at once under ~/generated-framework/<path>. "
+                "Use this for generating complete codebases, frameworks, or Java/Maven/TestNG projects. "
+                "Prefer this tool for bulk file creation to reduce overhead. "
+                "Fallback to 'write_file' only for individual or failed files."
+                        ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -264,7 +269,10 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="write_file",
-            description="Write a file under ~/generated-framework/<path>",
+            description=(
+                "Write a single file under ~/generated-framework/<path>. "
+                "Use this only for small updates or fallback if 'write_files_batch' fails."
+                        ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -342,7 +350,7 @@ async def handle_list_tools() -> list[Tool]:
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls for Appium operations."""
-    print(f"DEBUG: ANY tool call received: name={name}, args={arguments}, file=sys.stderr")
+    print(f"DEBUG: ANY tool call received: name={name}, args={arguments}", file=sys.stderr)
    
     # ✅ NEW TOOL HANDLER: write_file
     if name == "write_file":
@@ -368,6 +376,8 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
         except Exception:
             pass
         port = ensure_appium_installed_and_running()
+        if not port:
+            return [TextContent(type="text", text="❌ Appium server failed to start. Check npx/appium install or port usage.")]
         platform = arguments.get("platform")
         device_name = arguments.get("device_name")
         platform_version = arguments.get("platform_version", "")
@@ -513,7 +523,7 @@ async def handle_list_resources() -> list[Resource]:
 @server.read_resource()
 async def handle_read_resource(uri: AnyUrl) -> str:
     """Read resource content."""
-    print("DEBUG: list_tools handler called!")
+    print("DEBUG: list_tools handler called!", file=sys.stderr)
     if str(uri) == "appium://capabilities":
         capabilities = {
             "iOS": {
@@ -536,10 +546,10 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 async def main():
     """Main function to run the MCP server."""
     EXPECTED_VERSION = "0.1.13"
-    print(f"🚀 Starting Appium MCP Server on {EXPECTED_VERSION}..")
+    print(f"🚀 Starting Appium MCP Server on {EXPECTED_VERSION}..",file=sys.stderr)
     
     async with stdio_server() as (read_stream, write_stream):
-        print(f"✅ MCP server booting with version {EXPECTED_VERSION}")
+        print(f"✅ MCP server booting with version {EXPECTED_VERSION}", file=sys.stderr)
         await server.run(
             read_stream,
             write_stream,

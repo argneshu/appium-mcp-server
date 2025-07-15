@@ -21,6 +21,7 @@ import socket
 import urllib.request
 import json
 import platform
+import sys
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -41,8 +42,8 @@ active_session = {
 element_store = {}
 
 def start_session(platform: str, device_name: str, app_path: str = "", bundle_id: str = "", app_package: str = "", app_activity: str = "", start_url: str = "", udid: str = "", xcode_org_id: str = "", wda_bundle_id: str = "", xcode_signing_id: str = "iPhone Developer", use_new_wda: bool = False,use_prebuilt_wda: bool = True,skip_server_installation: bool = True,show_xcode_log: bool = True, no_reset: bool = True, platform_version: str = "",port: int = 4723) -> dict:
-    print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}")
-    print("🚀 MCP Server: Running from local-mcp-server")
+    print(f"DEBUG: start_session called with platform={platform}, device={device_name}, , udid={udid}", file=sys.stderr)
+    print("🚀 MCP Server: Running from local-mcp-server", file=sys.stderr)
 
     try:
         if platform.lower() == "ios":
@@ -63,18 +64,18 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                 )
             )
             if udid_is_valid:
-                print("DEBUG: Explicit UDID provided — setting udid")
+                print("DEBUG: Explicit UDID provided — setting udid", file=sys.stderr)
                 options.udid = udid
             elif device_name_looks_like_udid:
-                print("DEBUG: Device name looks like UDID — assuming real device")
+                print("DEBUG: Device name looks like UDID — assuming real device", file=sys.stderr)
                 options.udid = device_name
             elif device_name.lower().startswith("iphone") or device_name.lower().startswith("ipad"):
-                print("DEBUG: iOS Simulator detected")
+                print("DEBUG: iOS Simulator detected", file=sys.stderr)
             else:
-                print("⚠️ Unknown device_name format — not setting UDID")
+                print("⚠️ Unknown device_name format — not setting UDID", file=sys.stderr)
 
             if udid_is_valid or device_name_looks_like_udid:
-                print(f"DEBUG: Real iOS device detected")
+                print(f"DEBUG: Real iOS device detected", file=sys.stderr)
                 options.udid = udid or device_name
                 options.platform_version = "17.0"
 
@@ -92,12 +93,12 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                     options.wda_connection_timeout = 60000
         
                 else:
-                    print("Real device detected but xcode_org_id or wda_bundle_id not provided")
+                    print("Real device detected but xcode_org_id or wda_bundle_id not provided", file=sys.stderr)
             elif udid:
-                print(f"DEBUG: Simulator with explicit UDID: {udid}")
+                print(f"DEBUG: Simulator with explicit UDID: {udid}", file=sys.stderr)
                 options.udid = udid
             else:
-                print("DEBUG: iOS simulator without UDID — letting Appium choose")
+                print("DEBUG: iOS simulator without UDID — letting Appium choose", file=sys.stderr)
 
             if bundle_id:
                 options.bundle_id = bundle_id
@@ -120,14 +121,14 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             is_real_device = len(device_name) > 8 and not device_name.startswith("emulator")
 
             if is_real_device:
-                print("DEBUG: Real Android device detected")
+                print("DEBUG: Real Android device detected", file=sys.stderr)
                 options.udid = udid or device_name
                 options.system_port = 8200
             elif udid:
-                print(f"DEBUG: Android emulator with explicit UDID: {udid}")
+                print(f"DEBUG: Android emulator with explicit UDID: {udid}", file=sys.stderr)
                 options.udid = udid
             else:
-                print("DEBUG: Android emulator without UDID — letting Appium choose")
+                print("DEBUG: Android emulator without UDID — letting Appium choose", file=sys.stderr)
 
             if app_package and app_activity:
                 options.app_package = app_package
@@ -149,7 +150,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
 
         if getattr(options, "browser_name", None) and start_url:
             import time
-            print(f"DEBUG: Waiting for Safari context before navigating to {start_url}")
+            print(f"DEBUG: Waiting for Safari context before navigating to {start_url}", file=sys.stderr)
             time.sleep(3)  # Allow Safari to launch
 
             driver.implicitly_wait(10)
@@ -159,10 +160,10 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
 
             for _ in range(max_wait):
                 contexts = driver.contexts
-                print(f"DEBUG: Available contexts: {contexts}")
+                print(f"DEBUG: Available contexts: {contexts}", file=sys.stderr)
                 for ctx in contexts:
                     if "WEBVIEW" in ctx or "Safari" in ctx:
-                        print(f"DEBUG: Switching to context: {ctx}")
+                        print(f"DEBUG: Switching to context: {ctx}", file=sys.stderr)
                         driver.switch_to.context(ctx)
                         found_webview = True
                         break
@@ -171,10 +172,10 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                 time.sleep(interval)
 
             if found_webview:
-                print(f"DEBUG: Navigating to URL: {start_url}")
+                print(f"DEBUG: Navigating to URL: {start_url}", file=sys.stderr)
                 driver.get(start_url)
             else:
-                print("❌ No webview context found. Cannot navigate to URL.")
+                print("❌ No webview context found. Cannot navigate to URL.", file=sys.stderr)
 
         return {
             "status": "success",
@@ -511,7 +512,7 @@ def get_latest_ios_simulator_version() -> str:
         versions = sorted({float(v) for v in versions}, reverse=True)
         return str(versions[0]) if versions else "17.0"
     except Exception as e:
-        print(f"⚠️ Failed to detect iOS version from simctl: {e}")
+        print(f"⚠️ Failed to detect iOS version from simctl: {e}", file=sys.stderr)
         return "17.0"
     
 def get_latest_android_emulator_version() -> str:
@@ -523,7 +524,7 @@ def get_latest_android_emulator_version() -> str:
         versions = [int(re.search(r'API_(\d+)', avd).group(1)) for avd in avds if "API_" in avd]
         return f"{max(versions)}.0" if versions else "14.0"
     except Exception as e:
-        print(f"⚠️ Failed to detect Android version: {e}")
+        print(f"⚠️ Failed to detect Android version: {e}", file=sys.stderr)
         return "14.0"
     
 
@@ -564,28 +565,58 @@ def take_screenshot(filename: str = None) -> dict:
         }
 
 
-
 DEFAULT_APPIUM_PORT = 4723
+
 def ensure_appium_installed_and_running() -> int:
-    import subprocess, socket, os
-
     port = DEFAULT_APPIUM_PORT
-    print(f"🔧 Using fixed Appium port: {port}")
+    print(f"🔧 Using fixed Appium port: {port}", file=sys.stderr)
 
+    # Check if something is already running on the port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        if sock.connect_ex(('localhost', port)) != 0:
-            print(f"🚀 Starting Appium on port {port}...")
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-            subprocess.Popen(
-                ["npx", "appium", "-p", str(port)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=creationflags
-            )
-        else:
-            print(f"✅ Appium already running on port {port}")
+        if sock.connect_ex(('localhost', port)) == 0:
+            print(f"✅ Appium already running on port {port}", file=sys.stderr)
+            return port
 
-    return port  # Always returns 4723
+    # Check if Appium is installed
+    try:
+        subprocess.check_call(["npx", "appium", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        raise RuntimeError("❌ 'npx' not found. Please install Node.js and npm.")
+    except subprocess.CalledProcessError:
+        raise RuntimeError("❌ 'npx appium --version' failed. Is Appium installed? Try: npm install -g appium")
+
+    # Try launching Appium
+    print(f"🚀 Appium not running. Attempting to launch on port {port}...", file=sys.stderr)
+    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+
+    try:
+        process = subprocess.Popen(
+            ["npx", "appium", "-p", str(port)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags
+        )
+    except Exception as e:
+        raise RuntimeError(f"❌ Failed to launch Appium: {e}")
+
+    # Wait for Appium to come up
+    max_wait_time = 30
+    wait_interval = 1
+    elapsed_time = 0
+
+    print("⏳ Waiting for Appium to start...", file=sys.stderr)
+    while elapsed_time < max_wait_time:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            if sock.connect_ex(('localhost', port)) == 0:
+                print(f"✅ Appium started successfully on port {port}", file=sys.stderr)
+                return port
+        time.sleep(wait_interval)
+        elapsed_time += wait_interval
+        print(f"⏳ Still waiting... ({elapsed_time}s)", file=sys.stderr)
+
+    raise Exception(f"❌ Appium failed to start on port {port} within {max_wait_time} seconds")
+
+
 
 
 def quit_session() -> dict:
@@ -643,7 +674,7 @@ def handle_ios_alert():
     try:
         alert = driver.switch_to.alert
         alert_text = alert.text
-        print(f"🔔 Alert detected: {alert_text}")
+        print(f"🔔 Alert detected: {alert_text}", file=sys.stderr)
         alert.accept()
         return {"status": "success", "message": "✅ Alert accepted"}
     except Exception:
