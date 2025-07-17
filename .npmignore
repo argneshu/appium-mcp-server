@@ -12,3 +12,12 @@ __pycache__/
 # Exclude bootstrap scripts (dev-only)
 bootstrap.sh
 bootstrap.bat
+
+# Exclude LLM client folder
+llm_clients/
+
+# Exclude enhanced MCP client script
+enhanced_mcp_client.py
+
+# Exclude Gemini/Claude agent runner
+run_agent.py
