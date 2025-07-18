@@ -148,7 +148,12 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
         active_session["driver"] = driver
         active_session["session_id"] = driver.session_id
 
+        print(f"DEBUG: browser_name = {getattr(options, 'browser_name', None)}", file=sys.stderr)
+        print(f"DEBUG: start_url = {start_url}", file=sys.stderr)
+        print(f"DEBUG: Should navigate = {getattr(options, 'browser_name', None) and start_url}", file=sys.stderr)
+
         if getattr(options, "browser_name", None) and start_url:
+            print(f"DEBUG: Starting URL navigation to {start_url}", file=sys.stderr)
             import time
             print(f"DEBUG: Waiting for Safari context before navigating to {start_url}", file=sys.stderr)
             time.sleep(3)  # Allow Safari to launch

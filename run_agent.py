@@ -58,7 +58,6 @@ IMPORTANT GUIDELINES:
 4. Be flexible with element names - they might not match exactly
 5. Handle both iOS and Android apps automatically
 6. For Safari browser automation, you can use start_url parameter to directly open websites
-7. When chaining get_text to assertions, use $previous_tool_response for the actual_value
 
 SUPPORTED PLATFORMS: iOS, Android
 SUPPORTED APPS: Any mobile app (built-in apps, third-party apps, games, web browsers, etc.)
@@ -95,42 +94,6 @@ When user wants to open Safari with a specific URL, use start_url parameter:
     "platform_version": "18.0",
     "app": "Safari",
     "start_url": "https://www.saucedemo.com"
-  }
-}
-```
-
-TEXT EXTRACTION AND VERIFICATION:
-When you need to get text and then verify it, follow this pattern:
-1. Find the element
-2. Get text from element (appium_get_text with empty args uses the last found element)
-3. Use assert_value with "actual_value": "$previous_tool_response"
-
-Example:
-```json
-{
-  "tool": "appium_find_element",
-  "args": {
-    "strategy": "name",
-    "value": "Name"
-  }
-}
-```
-
-```json
-{
-  "tool": "appium_get_text",
-  "args": {}
-}
-```
-
-```json
-{
-  "tool": "assert_value",
-  "args": {
-    "actual_value": "$previous_tool_response",
-    "expected_value": "iPhone",
-    "comparison": "equals",
-    "message": "Verify that the name is iPhone."
   }
 }
 ```
@@ -174,7 +137,6 @@ IMPORTANT NOTES:
 - Handle different UI patterns for different apps
 - Be patient with loading times for complex apps
 - The system will automatically handle element ID chaining between steps
-- For text verification: appium_get_text with empty args, then assert_value with "$previous_tool_response"
 
 Only respond with JSON tool calls in code blocks.
 """
@@ -195,8 +157,42 @@ def run_single_prompt(prompt_text):
     print(reply)
     print("=" * 60)
 
-    # Extract JSON blocks
-    json_blocks = re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", reply)
+    # Extract JSON blocks - more robust extraction
+    json_blocks = []
+    
+    # Try multiple extraction patterns - FIXED ORDER for Safari URLs
+    patterns = [
+        r"```(?:json)?\s*(\{[\s\S]*?\})\s*```",              # Original pattern - GOOD FOR URLS
+        r"```(?:json)?\s*(\{(?:[^{}]|{[^{}]*})*\})\s*```",  # Nested braces - backup
+        r"```\s*(\{[\s\S]*?\})\s*```",                       # Without json marker
+    ]
+    
+    for pattern in patterns:
+        blocks = re.findall(pattern, reply, re.DOTALL)
+        if blocks:
+            json_blocks = blocks
+            break
+    
+    # If still no blocks found, try manual extraction
+    if not json_blocks:
+        lines = reply.split('\n')
+        in_json_block = False
+        current_block = []
+        
+        for line in lines:
+            if line.strip().startswith('```'):
+                if in_json_block and current_block:
+                    # End of block
+                    json_str = '\n'.join(current_block)
+                    if json_str.strip().startswith('{') and json_str.strip().endswith('}'):
+                        json_blocks.append(json_str)
+                    current_block = []
+                    in_json_block = False
+                else:
+                    # Start of block
+                    in_json_block = True
+            elif in_json_block:
+                current_block.append(line)
 
     if not json_blocks:
         print("\n❌ No valid JSON tool call found in the LLM response.")
@@ -293,27 +289,18 @@ async def execute_tool_calls(json_blocks):
             print(f"\n📦 Tool Call {i+1}/{len(json_blocks)}:")
             try:
                 if isinstance(block, str):
-                    clean_block = re.sub(r"//.*", "", block)
+                    # DON'T remove // comments as they break URLs
+                    # Only remove control characters that break JSON parsing
+                    clean_block = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', block)
+                    clean_block = clean_block.strip()
                     
                     try:
                         tool_call = json.loads(clean_block)
                     except json.JSONDecodeError as e:
                         print(f"❌ JSON Parse Error: {e}")
-                        print(f"🔍 Problematic JSON: {repr(clean_block[:100])}...")
-                        
-                        # Try to fix the JSON by removing control characters
-                        try:
-                            # Remove all control characters that break JSON
-                            fixed_block = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', clean_block)
-                            fixed_block = re.sub(r'\s+', ' ', fixed_block)  # Normalize whitespace
-                            fixed_block = fixed_block.strip()
-                            
-                            tool_call = json.loads(fixed_block)
-                            print("✅ Fixed JSON by removing control characters")
-                        except json.JSONDecodeError as e2:
-                            print(f"❌ Could not fix JSON: {e2}")
-                            print("⏭️ Skipping this tool call...")
-                            continue
+                        print(f"🔍 Raw JSON: {repr(clean_block[:200])}...")
+                        print("⏭️ Skipping this tool call...")
+                        continue
                 else:
                     tool_call = block
                     
