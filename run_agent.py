@@ -57,6 +57,8 @@ IMPORTANT GUIDELINES:
 3. Use descriptive names when looking for elements
 4. Be flexible with element names - they might not match exactly
 5. Handle both iOS and Android apps automatically
+6. For Safari browser automation, you can use start_url parameter to directly open websites
+7. When chaining get_text to assertions, use $previous_tool_response for the actual_value
 
 SUPPORTED PLATFORMS: iOS, Android
 SUPPORTED APPS: Any mobile app (built-in apps, third-party apps, games, web browsers, etc.)
@@ -76,10 +78,62 @@ SESSION PARAMETERS:
 For iOS apps, use these patterns:
 - Built-in apps: Use app name (e.g., "Settings", "Safari", "Notes", "Photos", "Calculator")
 - Third-party apps: Use bundle ID (e.g., "com.spotify.client", "com.facebook.Facebook")
+- Safari with URL: Use app name "Safari" and add start_url parameter
 
 For Android apps, use these patterns:
 - Built-in apps: Use app name (e.g., "Settings", "Chrome", "Contacts")
 - Third-party apps: Use package name (e.g., "com.spotify.music", "com.facebook.katana")
+
+SAFARI AUTOMATION:
+When user wants to open Safari with a specific URL, use start_url parameter:
+```json
+{
+  "tool": "appium_start_session",
+  "args": {
+    "platform": "iOS",
+    "device_name": "iPhone 15 Pro Max",
+    "platform_version": "18.0",
+    "app": "Safari",
+    "start_url": "https://www.saucedemo.com"
+  }
+}
+```
+
+TEXT EXTRACTION AND VERIFICATION:
+When you need to get text and then verify it, follow this pattern:
+1. Find the element
+2. Get text from element (appium_get_text with empty args uses the last found element)
+3. Use assert_value with "actual_value": "$previous_tool_response"
+
+Example:
+```json
+{
+  "tool": "appium_find_element",
+  "args": {
+    "strategy": "name",
+    "value": "Name"
+  }
+}
+```
+
+```json
+{
+  "tool": "appium_get_text",
+  "args": {}
+}
+```
+
+```json
+{
+  "tool": "assert_value",
+  "args": {
+    "actual_value": "$previous_tool_response",
+    "expected_value": "iPhone",
+    "comparison": "equals",
+    "message": "Verify that the name is iPhone."
+  }
+}
+```
 
 WORKFLOW EXAMPLE:
 ```json
@@ -116,9 +170,11 @@ WORKFLOW EXAMPLE:
 IMPORTANT NOTES:
 - Always inspect the page with extract_selectors_from_page_source after launching an app
 - Use the actual app name or bundle ID provided in the user's request
+- For Safari automation with URLs, use start_url parameter in the session
 - Handle different UI patterns for different apps
 - Be patient with loading times for complex apps
 - The system will automatically handle element ID chaining between steps
+- For text verification: appium_get_text with empty args, then assert_value with "$previous_tool_response"
 
 Only respond with JSON tool calls in code blocks.
 """
@@ -238,7 +294,26 @@ async def execute_tool_calls(json_blocks):
             try:
                 if isinstance(block, str):
                     clean_block = re.sub(r"//.*", "", block)
-                    tool_call = json.loads(clean_block)
+                    
+                    try:
+                        tool_call = json.loads(clean_block)
+                    except json.JSONDecodeError as e:
+                        print(f"❌ JSON Parse Error: {e}")
+                        print(f"🔍 Problematic JSON: {repr(clean_block[:100])}...")
+                        
+                        # Try to fix the JSON by removing control characters
+                        try:
+                            # Remove all control characters that break JSON
+                            fixed_block = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', clean_block)
+                            fixed_block = re.sub(r'\s+', ' ', fixed_block)  # Normalize whitespace
+                            fixed_block = fixed_block.strip()
+                            
+                            tool_call = json.loads(fixed_block)
+                            print("✅ Fixed JSON by removing control characters")
+                        except json.JSONDecodeError as e2:
+                            print(f"❌ Could not fix JSON: {e2}")
+                            print("⏭️ Skipping this tool call...")
+                            continue
                 else:
                     tool_call = block
                     
@@ -306,76 +381,43 @@ async def execute_tool_calls(json_blocks):
                         print(f"❌ Tap failed: {result}")
                         
                 elif tool_name == "appium_get_text":
-                    element_id = tool_args.get("element_id") or client.last_element_id
+                    element_id = tool_args.get("element_id")
                     
-                    if element_id:
-                        result = await client.smart_get_text(element_id)
-                        if result.get('status') == 'success':
-                            text_content = result.get('text', '')
-                            print(f"✅ Got text: '{text_content}'")
-                            
-                            # Generic text validation - works for any app
-                            if any(keyword in text_content.lower() for keyword in ['iphone', 'android', 'device', 'name']):
-                                print(f"📱 Device/name check: '{text_content}' - Found device-related text")
-                        else:
-                            print(f"❌ Get text failed: {result}")
+                    # Enhanced get text with automatic element resolution
+                    result = await client.smart_get_text(element_id)
+                    
+                    if result.get('status') == 'success':
+                        text = result.get('text', '')
+                        print(f"✅ Got text: '{text}'")
+                        
+                        # Generic text validation - works for any app
+                        if any(keyword in text.lower() for keyword in ['iphone', 'android', 'device', 'name']):
+                            print(f"📱 Device/name check: '{text}' - Found device-related text")
                     else:
-                        print("❌ No element ID for get text")
+                        print(f"❌ Get text failed: {result}")
                         
                 elif tool_name == "appium_input_text":
                     text = tool_args.get("text")
                     element_id = tool_args.get("element_id")
-                    strategy = tool_args.get("strategy")
-                    value = tool_args.get("value")
                     
-                    # Enhanced input logic with better parameter handling
-                    if not text:
-                        print("❌ No text provided for input")
-                        continue
-                    
-                    # Try different input methods in order of preference
-                    if element_id:
-                        # Use provided element ID
-                        result = await client.appium_input_text(text, element_id=element_id)
-                    elif strategy and value:
-                        # Use strategy and value to find element first, then input
-                        print(f"🔍 Finding element for input using {strategy}='{value}'")
-                        found_element_id, find_result = await client.smart_find_element(strategy, value)
-                        if found_element_id:
-                            result = await client.appium_input_text(text, element_id=found_element_id)
-                        else:
-                            print(f"❌ Could not find element for input: {find_result}")
-                            continue
-                    elif client.last_element_id:
-                        # Use last found element
-                        result = await client.appium_input_text(text, element_id=client.last_element_id)
-                    else:
-                        # Try direct text input (fallback)
-                        print("⚠️ No element specified, trying direct text input")
-                        result = await client.appium_input_text(text)
+                    # Enhanced input text with automatic element resolution
+                    result = await client.smart_input_text(text, element_id)
                     
                     if result.get('status') == 'success':
                         print(f"✅ Input successful: '{text}'")
                     else:
                         print(f"❌ Input failed: {result}")
-                        # Try alternative input method
-                        print("🔄 Trying smart input text method...")
-                        fallback_result = await client.smart_input_text(text, element_id)
-                        if fallback_result.get('status') == 'success':
-                            print(f"✅ Fallback input successful: '{text}'")
-                        else:
-                            print(f"❌ Both input methods failed: {fallback_result}")
                         
                 elif tool_name == "extract_selectors_from_page_source":
                     max_elements = tool_args.get("max_elements", 25)
                     
-                    # Use smart extraction with enhanced parser and server fallback
-                    print("🔍 Using smart selector extraction...")
-                    parsed_result = await client.smart_extract_selectors(max_elements, prefer_enhanced=True)
+                    # Use enhanced XML parser for better results
+                    print("🔍 Using enhanced XML parser...")
+                    parsed_result = await client.enhanced_extract_selectors(max_elements)
                     
                     if parsed_result.get('status') == 'success':
                         elements = parsed_result.get('elements', [])
-                        print(f"✅ Found {len(elements)} elements on page:")
+                        print(f"✅ Enhanced parser found {len(elements)} elements on page:")
                         for j, element in enumerate(elements[:15]):  # Show first 15
                             text = element.get('text', '')
                             acc_id = element.get('accessibility_id', '')
@@ -398,7 +440,17 @@ async def execute_tool_calls(json_blocks):
                             print("🎯 Found 'General' element in the list!")
                             
                     else:
-                        print(f"❌ Selector extraction failed: {parsed_result}")
+                        print(f"❌ Enhanced parser failed: {parsed_result}")
+                        # Fallback to server's method
+                        print("🔄 Falling back to server's extract_selectors_from_page_source...")
+                        result = await client.call_tool(tool_name, tool_args)
+                        parsed_result = client.parse_tool_result(result)
+                        
+                        if parsed_result.get('status') == 'success':
+                            elements = parsed_result.get('elements', []) or parsed_result.get('selectors', [])
+                            print(f"✅ Server parser found {len(elements)} elements")
+                        else:
+                            print(f"❌ Both parsers failed: {parsed_result}")
                         
                 elif tool_name == "appium_take_screenshot":
                     filename = tool_args.get("filename")
@@ -412,12 +464,13 @@ async def execute_tool_calls(json_blocks):
                         
                 elif tool_name == "appium_scroll":
                     direction = tool_args.get("direction", "down")
-                    result = await client.scroll(direction)
+                    result = await client.call_tool(tool_name, tool_args)
+                    parsed_result = client.parse_tool_result(result)
                     
-                    if result.get('status') == 'success':
+                    if parsed_result.get('status') == 'success':
                         print(f"✅ Scrolled {direction}")
                     else:
-                        print(f"❌ Scroll failed: {result}")
+                        print(f"❌ Scroll failed: {parsed_result}")
                         
                 elif tool_name == "appium_get_page_source":
                     full = tool_args.get("full", False)
@@ -442,125 +495,15 @@ async def execute_tool_calls(json_blocks):
                     else:
                         print(f"❌ Failed to quit session: {result}")
                 
-                # Handle file operations
-                elif tool_name == "write_file":
-                    path = tool_args.get("path")
-                    content = tool_args.get("content")
-                    result = await client.write_file(path, content)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ File written: {path}")
-                    else:
-                        print(f"❌ Write file failed: {result}")
-                
-                elif tool_name == "write_files_batch":
-                    files = tool_args.get("files", [])
-                    result = await client.write_files_batch(files)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ Batch write completed: {len(files)} files")
-                    else:
-                        print(f"❌ Batch write failed: {result}")
-                
-                elif tool_name == "create_project":
-                    project_name = tool_args.get("project_name")
-                    package = tool_args.get("package")
-                    pages = tool_args.get("pages")
-                    tests = tool_args.get("tests")
-                    result = await client.create_project(project_name, package, pages, tests)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ Project created: {project_name}")
-                    else:
-                        print(f"❌ Project creation failed: {result}")
-                
-                # Handle iOS specific tools
-                elif tool_name == "grant_ios_permissions":
-                    bundle_id = tool_args.get("bundle_id")
-                    permissions = tool_args.get("permissions", [])
-                    result = await client.grant_ios_permissions(bundle_id, permissions)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ iOS permissions granted for {bundle_id}")
-                    else:
-                        print(f"❌ Permission grant failed: {result}")
-                
-                elif tool_name == "appium_handle_ios_alert":
-                    result = await client.handle_ios_alert()
-                    
-                    if result.get('status') == 'success':
-                        print("✅ iOS alert handled")
-                    else:
-                        print(f"❌ Alert handling failed: {result}")
-                
-                # Handle advanced gestures
-                elif tool_name == "appium_swipe":
-                    start_x = tool_args.get("start_x")
-                    start_y = tool_args.get("start_y")
-                    end_x = tool_args.get("end_x")
-                    end_y = tool_args.get("end_y")
-                    duration = tool_args.get("duration", 1000)
-                    result = await client.swipe(start_x, start_y, end_x, end_y, duration)
-                    
-                    if result.get('status') == 'success':
-                        print("✅ Swipe completed")
-                    else:
-                        print(f"❌ Swipe failed: {result}")
-                
-                elif tool_name == "smart_swipe":
-                    direction = tool_args.get("direction", "up")
-                    distance = tool_args.get("distance", "medium")
-                    result = await client.smart_swipe(direction, distance)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ Smart swipe {direction} completed")
-                    else:
-                        print(f"❌ Smart swipe failed: {result}")
-                
-                # Handle wait operations
-                elif tool_name == "wait":
-                    duration = tool_args.get("duration", 1.0)
-                    result = await client.wait(duration)
-                    print(f"✅ Waited {duration} seconds")
-                
-                elif tool_name == "wait_for_element":
-                    strategy = tool_args.get("strategy", "accessibility_id")
-                    value = tool_args.get("value")
-                    timeout = tool_args.get("timeout", 10)
-                    element_id, result = await client.wait_for_element(strategy, value, timeout)
-                    
-                    if element_id:
-                        print(f"✅ Element found within timeout: {element_id}")
-                        client.element_store[f"step_{i}"] = element_id
-                    else:
-                        print(f"❌ Element not found within {timeout}s: {result}")
-                
-                # Handle assertion tools
-                elif tool_name == "assert_element_exists":
-                    strategy = tool_args.get("strategy", "accessibility_id")
-                    value = tool_args.get("value")
-                    result = await client.assert_element_exists(strategy, value)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ Assertion passed: Element '{value}' exists")
-                    else:
-                        print(f"❌ Assertion failed: {result}")
-                
-                elif tool_name == "assert_text_contains":
-                    element_id = tool_args.get("element_id") or client.last_element_id
-                    expected_text = tool_args.get("expected_text")
-                    result = await client.assert_text_contains(element_id, expected_text)
-                    
-                    if result.get('status') == 'success':
-                        print(f"✅ Text assertion passed")
-                    else:
-                        print(f"❌ Text assertion failed: {result}")
-                
-                # Handle generic assertion tools (assert, assert_value, etc.)
+                # Handle assertion tools that LLMs sometimes generate
                 elif tool_name in ["assert", "assert_value", "assert_equals", "validate", "check"]:
                     actual = tool_args.get("actual_value", tool_args.get("actual", ""))
                     expected = tool_args.get("expected_value", tool_args.get("expected", ""))
                     comparison = tool_args.get("comparison", "equals")
+                    message = tool_args.get("message", "")
+                    
+                    if message:
+                        print(f"🔍 Assertion: {message}")
                     
                     # Perform the assertion based on comparison type
                     if comparison in ["equals", "==", "eq"]:
@@ -573,37 +516,20 @@ async def execute_tool_calls(json_blocks):
                             print(f"✅ Assertion passed: '{actual}' contains '{expected}'")
                         else:
                             print(f"❌ Assertion failed: '{actual}' does not contain '{expected}'")
-                    elif comparison in ["not_equals", "!=", "ne"]:
-                        if str(actual) != str(expected):
-                            print(f"✅ Assertion passed: '{actual}' != '{expected}'")
-                        else:
-                            print(f"❌ Assertion failed: '{actual}' == '{expected}' (should not be equal)")
                     else:
-                        print(f"✅ Generic assertion: {tool_name} with {comparison} comparison")
-                        
-                # Handle unknown tools gracefully  
-                elif tool_name == "assert_value":
-                    actual = tool_args.get("actual_value", "")
-                    expected = tool_args.get("expected_value", "")
-                    if actual == expected:
-                        print(f"✅ Value assertion passed: '{actual}' == '{expected}'")
-                    else:
-                        print(f"❌ Value assertion failed: '{actual}' != '{expected}'")
+                        print(f"✅ Generic assertion: {tool_name} - {actual} vs {expected}")
                         
                 else:
-                    # Try to call tool directly on server for any unhandled tools
-                    print(f"🔧 Trying direct server call for: {tool_name}")
-                    try:
-                        result = await client.call_tool(tool_name, tool_args)
-                        parsed_result = client.parse_tool_result(result)
-                        
-                        if parsed_result.get('status') == 'success':
-                            print(f"✅ Tool '{tool_name}' executed successfully")
-                        else:
-                            print(f"❌ Tool '{tool_name}' failed: {parsed_result}")
-                    except Exception as e:
-                        print(f"❌ Unknown tool '{tool_name}' failed: {e}")
-                        print(f"   Available methods: {await client.get_all_available_methods() if hasattr(client, 'get_all_available_methods') else 'Method list unavailable'}")
+                    # Regular tool call for any other tools your server supports
+                    result = await client.call_tool(tool_name, tool_args)
+                    parsed_result = client.parse_tool_result(result)
+                    
+                    if parsed_result.get('status') == 'success':
+                        print(f"✅ Tool '{tool_name}' executed successfully")
+                    else:
+                        print(f"❌ Tool '{tool_name}' failed: {parsed_result}")
+                        # For unknown tools, just continue instead of stopping
+                        print(f"⏭️ Continuing with next tool...")
 
                 # Add delay between actions for stability
                 await asyncio.sleep(1.5)

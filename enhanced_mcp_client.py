@@ -14,6 +14,7 @@ class EnhancedMCPClient:
         self.element_store = {}  
         self.last_element_id = None
         self.last_find_result = None
+        self.last_result = None  # Store last tool result for variable substitution
         self.session_active = False
         self.current_platform = None
         
@@ -171,6 +172,9 @@ class EnhancedMCPClient:
         if platform == "ios":
             if bundle_id:
                 normalized["bundle_id"] = bundle_id
+                # Special handling for Safari - add start URL to open to blank page
+                if bundle_id == "com.apple.mobilesafari":
+                    normalized["start_url"] = "about:blank"  # Start with blank page instead of homepage
             elif app_path:
                 normalized["app_path"] = app_path
         elif platform == "android":
