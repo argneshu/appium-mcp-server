@@ -40,12 +40,14 @@ time.sleep(2)
 
 # Parse CLI arguments
 parser = argparse.ArgumentParser(description="Generic Mobile Automation Agent - Works with Any App")
+mode_group = parser.add_mutually_exclusive_group(required=True)
 parser.add_argument("--model", choices=["gemini", "claude"], required=True, help="LLM model to use")
-parser.add_argument("--prompt", required=True, help="Natural language automation instructions")
+mode_group.add_argument("--prompt", help="Natural language automation instructions")
+mode_group.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
 parser.add_argument("--debug", action="store_true", help="Enable debug mode with screenshots")
 parser.add_argument("--platform", choices=["iOS", "Android"], help="Override platform detection")
 parser.add_argument("--device", help="Override device name")
-parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
+
 args = parser.parse_args()
 
 # Generic tool instruction template - works for any app
