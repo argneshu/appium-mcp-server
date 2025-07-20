@@ -358,29 +358,33 @@ class EnhancedMCPClient:
     async def smart_find_element(self, strategy: str, value: str, description: str = None) -> Tuple[Optional[str], Dict[str, Any]]:
         """Enhanced find element with multiple strategies and fallbacks."""
         print(f"🔍 Looking for element: {description or value} using {strategy}")
-        
-        # First, try the direct approach using your existing server
+    
+        # NEW: Detect if we're in Safari web context
+        if await self._is_web_context():
+            return await self._find_web_element(strategy, value, description)
+    
+        # EXISTING: Native app logic - keep everything as it was
         result = await self.call_tool("appium_find_element", {
             "strategy": strategy,
             "value": value
         })
-        
+    
         parsed_result = self.parse_tool_result(result)
-        
+    
         if parsed_result.get('status') == 'success':
             element_id = parsed_result.get('element_id')
             if element_id:
                 self.last_element_id = element_id
                 self.last_find_result = parsed_result
-                
+            
                 # Store element for future reference
                 key = description or value
                 self.element_store[key] = element_id
-                
+            
                 print(f"✅ Found element: {element_id}")
                 print(f"🔄 Stored as last_element_id: {self.last_element_id}")
                 return element_id, parsed_result
-        
+    
         # If direct approach failed, try with page inspection using enhanced parser
         print(f"❌ Direct search failed, trying with enhanced page inspection...")
         element_id, result = await self.find_element_with_inspection(value, description)
@@ -547,3 +551,70 @@ class EnhancedMCPClient:
         self.current_platform = None
         self.element_store.clear()
         return self.parse_tool_result(result)
+    
+    async def _is_web_context(self) -> bool:
+        """Check if we're in Safari web context by looking at page source."""
+        try:
+            page_source_result = await self.call_tool("appium_get_page_source", {"full": False})
+            parsed_result = self.parse_tool_result(page_source_result)
+            if parsed_result.get('status') == 'success':
+                source = parsed_result.get('page_source', '')
+            # If it contains HTML tags, we're in web context
+                return '<html' in source or '<body' in source
+        except:
+            pass
+        return False
+    
+    async def _find_web_element(self, strategy: str, value: str, description: str = None) -> Tuple[Optional[str], Dict[str, Any]]:
+        """Find element using web-specific strategies."""
+        print(f"🌐 Web context detected, using web strategies for: {value}")
+
+        # Extract actual text content if value is an XPath
+        target_text = self._extract_text_from_xpath_or_value(value)
+        print(f"🎯 Extracted target text: '{target_text}'")
+    
+        # For web elements, try link text strategies first
+        web_strategies = [
+            ("link text", target_text),
+            ("partial link text", target_text),
+            ("xpath", f"//a[contains(text(), '{target_text}')]"),
+            ("xpath", f"//*[contains(text(), '{target_text}')]"),
+            ("xpath", value)
+        ]
+    
+        for web_strategy, web_value in web_strategies:
+            try:
+                print(f"🔍 Trying web strategy: {web_strategy}='{web_value}'")
+                result = await self.call_tool("appium_find_element", {
+                    "strategy": web_strategy,
+                    "value": web_value
+                })
+            
+                parsed_result = self.parse_tool_result(result)
+                if parsed_result.get('status') == 'success':
+                    element_id = parsed_result.get('element_id')
+                    if element_id:
+                        self.last_element_id = element_id
+                        print(f"✅ Found web element using {web_strategy}: {element_id}")
+                        return element_id, parsed_result
+            except Exception as e:
+                print(f"⚠️ Web strategy {web_strategy} failed: {e}")
+                continue
+    
+        return None, {"status": "error", "message": f"Web element '{value}' not found"}
+    
+    def _extract_text_from_xpath_or_value(self, value: str) -> str:
+        """Extract actual text content from XPath or return the value as-is."""
+        # If it looks like an XPath with contains(text(), '...'), extract the text
+        import re
+    
+        # Pattern to match: contains(text(), 'some text')
+        match = re.search(r"contains\(text\(\),\s*['\"]([^'\"]+)['\"]", value)
+        if match:
+            extracted_text = match.group(1)
+            print(f"📝 Extracted text from XPath: '{extracted_text}'")
+            return extracted_text
+    
+    # If it's not an XPath, return as-is
+        return value
+    
