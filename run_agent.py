@@ -214,6 +214,9 @@ def interactive_mode():
     print("  - 'help' - Show this help")
     print("  - 'exit' or 'quit' - Exit interactive mode")
     print("")
+
+    # ADD THIS: Session tracking
+    session_active = False
     
     while True:
         try:
@@ -251,15 +254,58 @@ Examples:
             elif prompt.lower() == 'quit session':
                 # Quick quit session command
                 json_blocks = [{"tool": "appium_quit_session", "args": {}}]
+            elif "launch" in prompt.lower() and session_active:
+                print("⚠️ A session is already active. Do you want to:")
+                print("  1. Quit current session and launch new app")
+                print("  2. Continue with current session")
+                choice = input("Enter choice (1/2): ").strip()
+                if choice == "1":
+                    # Auto-quit current session first
+                    print("🔄 Ending current session...")
+                    quit_blocks = [{"tool": "appium_quit_session", "args": {}}]
+                    try:
+                        asyncio.run(execute_tool_calls(quit_blocks))
+                        session_active = False
+                        print("✅ Previous session ended")
+                    except Exception as e:
+                        print(f"❌ Error ending session: {e}")
+                            # ADD THIS: Use same smart context logic
+                    if session_active and not "launch" in prompt.lower():
+                        enhanced_prompt = f"Continue in current app session. Task: {prompt}"
+                    else:
+                        enhanced_prompt = prompt
+                    
+                    # Now process the launch command normally
+                    json_blocks = run_single_prompt(enhanced_prompt)
+                    if not json_blocks:
+                        continue
+                else:
+                    print("❌ Command cancelled. Continuing with current session.")
+                    continue
             else:
                 # Process normal automation command
-                json_blocks = run_single_prompt(prompt)
+                # MODIFIED: Add smart context for Gemini
+                if session_active and not "launch" in prompt.lower():
+                    # Tell Gemini we're in an existing session
+                    enhanced_prompt = f"Continue in current app session. Task: {prompt}"
+                else:
+                    enhanced_prompt = prompt
+                
+                json_blocks = run_single_prompt(enhanced_prompt)
                 if not json_blocks:
                     continue
             
             # Execute the commands
             try:
                 asyncio.run(execute_tool_calls(json_blocks))
+                # ADD THIS: Update session tracking
+                if any("appium_start_session" in str(block) for block in json_blocks):
+                    session_active = True
+                    print("📱 Session started")
+                if any("appium_quit_session" in str(block) for block in json_blocks):
+                    session_active = False
+                    print("📱 Session ended")
+
             except Exception as e:
                 print(f"❌ Error executing commands: {e}")
                 
