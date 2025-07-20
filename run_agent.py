@@ -481,6 +481,11 @@ async def execute_tool_calls(json_blocks):
                         print("✅ Session ended successfully")
                     else:
                         print(f"❌ Failed to quit session: {result}")
+                elif tool_name in ["sleep", "wait"]:
+                    seconds = tool_args.get("seconds", 5)
+                    print(f"⏰ Waiting {seconds} seconds for page to load...")
+                    await asyncio.sleep(seconds)
+                    print(f"✅ Waited {seconds} seconds")
                 
                 # Handle assertion tools that LLMs sometimes generate
                 elif tool_name in ["assert", "assert_value", "assert_equals", "validate", "check"]:
@@ -507,7 +512,7 @@ async def execute_tool_calls(json_blocks):
                         print(f"✅ Generic assertion: {tool_name} - {actual} vs {expected}")
                         
                 else:
-                    # Regular tool call for any other tools your server supports
+                    # Regular tool call for any other tools our server supports
                     result = await client.call_tool(tool_name, tool_args)
                     parsed_result = client.parse_tool_result(result)
                     
