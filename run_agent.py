@@ -72,6 +72,7 @@ Available tools:
 - appium_scroll: Scroll the screen
 - appium_take_screenshot: Take screenshots
 - appium_get_page_source: Get the full page XML
+- appium_quit_session: Quit/close/end/stop/terminate the current Appium session (use ONLY this tool name)
 
 SESSION PARAMETERS:
 For iOS apps, use these patterns:
@@ -309,6 +310,11 @@ async def execute_tool_calls(json_blocks):
 
                 print(f"🛠️  Tool: {tool_name}")
                 print(f"🧩 Args: {json.dumps(tool_args, indent=2)}")
+
+                # ADD THE ALIAS HANDLING HERE - BEFORE the if/elif chain
+                if tool_name in ["appium_close_session", "appium_destroy_session", "appium_end_session", "appium_stop_session", "appium_terminate_session"]:
+                    tool_name = "appium_quit_session"
+                    print(f"🔄 Corrected tool name: appium_close_session → appium_quit_session")
 
                 # Handle different tool types generically
                 if tool_name == "appium_start_session":

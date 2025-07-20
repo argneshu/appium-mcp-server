@@ -607,14 +607,27 @@ class EnhancedMCPClient:
         """Extract actual text content from XPath or return the value as-is."""
         # If it looks like an XPath with contains(text(), '...'), extract the text
         import re
+        # Multiple patterns to handle different XPath formats
+        patterns = [
+        r"contains\(@text,\s*['\"]([^'\"]+)['\"]",        # contains(@text, 'text')  
+        r"contains\(@label,\s*['\"]([^'\"]+)['\"]",       # contains(@label, 'text')
+        r"contains\(@name,\s*['\"]([^'\"]+)['\"]",        # contains(@name, 'text')
+        r"contains\(text\(\),\s*['\"]([^'\"]+)['\"]",     # contains(text(), 'text')
+        r"@text\s*=\s*['\"]([^'\"]+)['\"]",               # @text='text'
+        r"@label\s*=\s*['\"]([^'\"]+)['\"]",              # @label='text'
+        r"'([^']+)'",                                     # Any single-quoted text
+        r'"([^"]+)"'                                      # Any double-quoted text
+        ]
     
-        # Pattern to match: contains(text(), 'some text')
-        match = re.search(r"contains\(text\(\),\s*['\"]([^'\"]+)['\"]", value)
-        if match:
-            extracted_text = match.group(1)
-            print(f"📝 Extracted text from XPath: '{extracted_text}'")
-            return extracted_text
+        for i, pattern in enumerate(patterns):
+            matches = re.findall(pattern, value, re.IGNORECASE)
+            print(f"📋 Pattern {i+1} ({pattern}): {matches}")
+        
+            # Return the first non-empty match
+            for match in matches:
+                if match.strip():  # Make sure it's not empty
+                    print(f"✅ Pattern {i+1} matched! Extracted: '{match}'")
+                    return match.strip()
     
-    # If it's not an XPath, return as-is
-        return value
-    
+        print(f"❌ No extraction pattern worked, using original value")
+        return value  # Return original value if no pattern matches
