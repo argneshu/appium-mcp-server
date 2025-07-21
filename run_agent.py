@@ -315,6 +315,26 @@ Examples:
         except Exception as e:
             print(f"❌ Error: {e}")
 
+def is_new_app_command(prompt):
+    """Check if command is trying to start a new app."""
+    prompt_lower = prompt.lower()
+    
+    # Launch keywords - PRIMARY detection method
+    launch_keywords = ["launch", "start", "open", "run", "begin", "load"]
+    has_launch_keyword = any(keyword in prompt_lower for keyword in launch_keywords)
+    
+    # Device mentions - indicates new session
+    device_keywords = ["iphone", "android", "simulator", "device", "emulator", "pixel", "samsung"]
+    has_device = any(device in prompt_lower for device in device_keywords)
+    
+    # Bundle ID patterns (more reliable than app names)
+    has_bundle_id = ("com." in prompt_lower) or ("bundle" in prompt_lower)
+    
+    # MAIN LOGIC: If has launch keyword OR (device + any app indication)
+    return (has_launch_keyword or 
+            has_bundle_id or 
+            (has_device and ("app" in prompt_lower or "application" in prompt_lower)))
+
 # Generic async tool execution loop
 async def execute_tool_calls(json_blocks):
     """Execute tool calls with your existing MCP server."""
