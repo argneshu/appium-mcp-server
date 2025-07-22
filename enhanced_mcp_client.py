@@ -485,18 +485,187 @@ class EnhancedMCPClient:
         return self.parse_tool_result(result)
     
     async def smart_get_text(self, element_id: str = None) -> Dict[str, Any]:
-        """Smart get text with automatic element resolution."""
-        
+        """Smart get text with automatic element resolution and stale element recovery."""
+
         # If no element_id provided, use the last found element
         if not element_id:
             element_id = self.last_element_id
-        
+
         if not element_id:
             return {"status": "error", "message": "No element ID available for get text"}
-        
+
         print(f"📖 Getting text from element: {element_id}")
         result = await self.call_tool("appium_get_text", {"element_id": element_id})
-        return self.parse_tool_result(result)
+        parsed_result = self.parse_tool_result(result)
+
+        # ENHANCED: If stale, try smart recovery strategies
+        if (parsed_result.get("status") == "error" and 
+        "StaleElementReferenceException" in str(parsed_result.get("message", ""))):
+        
+            print("⚠️ Stale element detected, attempting recovery strategies...")
+        
+            # STRATEGY 1: Try to find Name cell and get its value
+            recovery_result = await self.recover_name_cell_text()
+            if recovery_result.get("status") == "success":
+                return recovery_result
+        
+             # STRATEGY 2: Try XPath-based recovery
+            xpath_result = await self.recover_text_via_xpath()
+            if xpath_result.get("status") == "success":
+                return xpath_result
+        
+            # STRATEGY 3: Page source parsing as last resort
+            page_source_result = await self.recover_text_via_page_source()
+            if page_source_result.get("status") == "success":
+                return page_source_result
+        
+            # If all recovery failed, return helpful error
+            return {
+            "status": "error",
+            "message": "Element became stale and recovery strategies failed. The UI may have changed significantly.",
+            "error_type": "StaleElementReferenceException",
+            "recovery_attempted": True
+            }
+
+        return parsed_result
+
+    async def recover_name_cell_text(self) -> Dict[str, Any]:
+        """Try to recover text by finding Name cell directly."""
+        try:
+            print("🔄 Attempting to find Name cell directly...")
+        
+            # Find Name cell using accessibility_id
+            find_result = await self.call_tool("appium_find_element", {
+                "strategy": "accessibility_id",
+                "value": "Name"
+            })
+        
+            parsed_find = self.parse_tool_result(find_result)
+            if parsed_find.get("status") == "success":
+                name_element_id = parsed_find.get("element_id")
+            
+                # Get text from Name cell
+                text_result = await self.call_tool("appium_get_text", {
+                "element_id": name_element_id
+                })
+            
+                parsed_text = self.parse_tool_result(text_result)
+                if parsed_text.get("status") == "success":
+                    text = parsed_text.get("text", "")
+                
+                    # Return any non-empty text that's not just "Name"
+                    if text and text.strip() != "Name":
+                        return {
+                        "status": "success",
+                        "text": text,
+                        "message": f"Recovered text via Name cell: {text}",
+                        "method": "name_cell_recovery"
+                        }
+        
+            return {"status": "error", "message": "Name cell recovery failed"}
+        
+        except Exception as e:
+            print(f"⚠️ Name cell recovery error: {e}")
+            return {"status": "error", "message": f"Name cell recovery failed: {str(e)}"}
+
+    async def recover_text_via_xpath(self) -> Dict[str, Any]:
+        """Try to recover text using XPath strategies."""
+        try:
+            print("🔄 Attempting XPath-based recovery...")
+        
+            xpath_strategies = [
+            "//XCUIElementTypeCell[@name='Name']//XCUIElementTypeStaticText[2]",
+            "//XCUIElementTypeStaticText[@name='Name']/following-sibling::XCUIElementTypeStaticText[1]",
+            "//XCUIElementTypeCell[.//XCUIElementTypeStaticText[@name='Name']]//XCUIElementTypeStaticText[position()>1]",
+            "//*[@name='Name']/..//XCUIElementTypeStaticText[not(@name='Name')]"
+            ]
+        
+            for xpath in xpath_strategies:
+                try:
+                    print(f"🔄 Trying XPath: {xpath}")
+                
+                    find_result = await self.call_tool("appium_find_element", {
+                    "strategy": "xpath",
+                    "value": xpath
+                    })
+                
+                    parsed_find = self.parse_tool_result(find_result)
+                    if parsed_find.get("status") == "success":
+                        xpath_element_id = parsed_find.get("element_id")
+                    
+                        text_result = await self.call_tool("appium_get_text", {
+                        "element_id": xpath_element_id
+                        })
+                    
+                        parsed_text = self.parse_tool_result(text_result)
+                        if parsed_text.get("status") == "success":
+                            text = parsed_text.get("text", "")
+                            if text and text.strip() and text.strip() != "Name":
+                                return {
+                                 "status": "success",
+                                "text": text,
+                                "message": f"Recovered text via XPath: {text}",
+                                "method": "xpath_recovery",
+                                "xpath_used": xpath
+                             }
+                except Exception as e:
+                    print(f"⚠️ XPath {xpath} failed: {e}")
+                    continue
+        
+            return {"status": "error", "message": "All XPath strategies failed"}
+        
+        except Exception as e:
+            print(f"⚠️ XPath recovery error: {e}")
+            return {"status": "error", "message": f"XPath recovery failed: {str(e)}"}
+
+    async def recover_text_via_page_source(self) -> Dict[str, Any]:
+        """Try to recover text by parsing page source."""
+        try:
+            print("🔄 Attempting page source parsing recovery...")
+        
+            # Get current page source
+            page_result = await self.call_tool("appium_get_page_source", {"full": False})
+            parsed_page = self.parse_tool_result(page_result)
+        
+            if parsed_page.get("status") == "success":
+                page_source = parsed_page.get("page_source", "")
+            
+                import re
+            
+                # Generic patterns to find Name cell value
+                patterns = [
+                r'name=["\']Name["\'][^>]*>.*?name=["\']([^"\']+)["\']',
+                r'label=["\']Name["\'][^>]*>.*?value=["\']([^"\']+)["\']',
+                r'<[^>]*name=["\']Name["\'][^>]*>.*?<[^>]*>([^<]+)</[^>]*>',
+                r'Name.*?<[^>]*>([^<]+)</[^>]*>'
+                ]
+            
+                for pattern in patterns:
+                    try:
+                        match = re.search(pattern, page_source, re.IGNORECASE | re.DOTALL)
+                        if match:
+                            found_text = match.group(1).strip()
+                        
+                            # Return any meaningful text that's not just "Name"
+                            if found_text and found_text != "Name":
+                                return {
+                                "status": "success",
+                                "text": found_text,
+                                "message": f"Recovered text via page source: {found_text}",
+                                "method": "page_source_recovery",
+                                "pattern_used": pattern
+                                }
+                    except Exception as pattern_error:
+                        print(f"⚠️ Pattern {pattern} failed: {pattern_error}")
+                        continue
+        
+            return {"status": "error", "message": "Page source parsing failed"}
+        
+        except Exception as e:
+            print(f"⚠️ Page source recovery error: {e}")
+            return {"status": "error", "message": f"Page source recovery failed: {str(e)}"}
+
+
     
     async def smart_input_text(self, text: str, element_id: str = None) -> Dict[str, Any]:
         """Smart input text with automatic element resolution."""

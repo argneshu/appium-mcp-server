@@ -162,6 +162,15 @@ def run_single_prompt(prompt_text):
 
     # Extract JSON blocks - more robust extraction
     json_blocks = []
+
+    # NEW: Check if we're using Gemini 2.5 Pro (handles array format)
+    # NEW: array format first (works for Gemini 2.5 Pro)
+    if args.model == "gemini":
+        # Try Gemini 2.5 Pro array format first
+        json_blocks = extract_array_format(reply)
+        if json_blocks:
+            print(f"\n📋 Found {len(json_blocks)} tool calls (Gemini array format)")
+            return json_blocks
     
     # Try multiple extraction patterns - FIXED ORDER for Safari URLs
     patterns = [
@@ -612,6 +621,37 @@ async def execute_tool_calls(json_blocks):
         print(f"❌ Error in tool execution: {e}")
         import traceback
         traceback.print_exc()
+
+# NEW FUNCTION: Handle Gemini 2.0.5 Pro array format
+def extract_array_format(response_text):
+    """Extract JSON array format from Gemini 2.5 Pro responses."""
+    json_blocks = []
+    
+    # Multiple patterns to try
+    patterns = [
+        r'```json\s*(\[[\s\S]*?\])\s*```',           # Your original
+        r'```JSON\s*(\[[\s\S]*?\])\s*```',           # Uppercase
+        r'```\s*json\s*(\[[\s\S]*?\])\s*```',        # Extra spaces
+        r'```\s*(\[[\s\S]*?\])\s*```',               # No json marker
+        r'```[^\n]*\n(\[[\s\S]*?\])\s*```',          # Any text after ```
+    ]
+    
+    for i, pattern in enumerate(patterns):
+        matches = re.findall(pattern, response_text, re.DOTALL)
+        if matches:
+            print(f"✅ Pattern {i+1} found {len(matches)} matches")
+            for match in matches:
+                try:
+                    parsed_array = json.loads(match.strip())
+                    if isinstance(parsed_array, list):
+                        for item in parsed_array:
+                            if isinstance(item, dict):
+                                json_blocks.append(json.dumps(item))
+                except json.JSONDecodeError:
+                    continue
+            return json_blocks
+    
+    return []
 
 # Main execution logic
 def main():
