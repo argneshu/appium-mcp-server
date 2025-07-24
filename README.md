@@ -229,6 +229,13 @@ The easiest way to run mobile automation commands is using our simple CLI wrappe
 - 🧬 Clone the project
 - 📂 Open Terminal
 - Navigate to your project repository
+- Also make sure you have created .env file in your project root and entered GEMINI_API_KEY key there
+
+# Load environment variables from .env
+load_dotenv()
+
+# Get the API key
+api_key = os.getenv("GEMINI_API_KEY")
 
 1. **Make the setup script executable:**
    ```bash
