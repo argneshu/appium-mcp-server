@@ -734,31 +734,45 @@ class EnhancedMCPClient:
             pass
         return False
     
+    
     async def _find_web_element(self, strategy: str, value: str, description: str = None) -> Tuple[Optional[str], Dict[str, Any]]:
-        """Find element using web-specific strategies."""
-        print(f"🌐 Web context detected, using web strategies for: {value}")
+        """Intelligent web element finder that adapts to any website."""
+        print(f"🌐 Web context detected, using intelligent strategies for: {value}")
 
         # Extract actual text content if value is an XPath
         target_text = self._extract_text_from_xpath_or_value(value)
         print(f"🎯 Extracted target text: '{target_text}'")
     
-        # For web elements, try link text strategies first
-        web_strategies = [
+        # STEP 1: Try original strategy first (if provided)
+        web_strategies = []
+        if strategy and value and strategy != "xpath":
+            web_strategies.append((strategy, value))
+    
+        # STEP 2: Intelligent semantic detection
+        target_lower = target_text.lower().strip()
+    
+        # STEP 3: Build smart strategies based on semantic meaning
+        smart_strategies = await self._build_smart_strategies(target_lower, target_text)
+        web_strategies.extend(smart_strategies)
+    
+        # STEP 4: Add your original fallback strategies
+        web_strategies.extend([
             ("link text", target_text),
             ("partial link text", target_text),
             ("xpath", f"//a[contains(text(), '{target_text}')]"),
             ("xpath", f"//*[contains(text(), '{target_text}')]"),
-            ("xpath", value)
-        ]
+            ("xpath", value)  # Original XPath as final fallback
+        ])
     
-        for web_strategy, web_value in web_strategies:
+        # STEP 5: Try each strategy intelligently
+        for i, (web_strategy, web_value) in enumerate(web_strategies):
             try:
-                print(f"🔍 Trying web strategy: {web_strategy}='{web_value}'")
+                print(f"🔍 Trying intelligent strategy {i+1}/{len(web_strategies)}: {web_strategy}='{web_value}'")
                 result = await self.call_tool("appium_find_element", {
-                    "strategy": web_strategy,
+                 "strategy": web_strategy,
                     "value": web_value
                 })
-            
+        
                 parsed_result = self.parse_tool_result(result)
                 if parsed_result.get('status') == 'success':
                     element_id = parsed_result.get('element_id')
@@ -767,36 +781,324 @@ class EnhancedMCPClient:
                         print(f"✅ Found web element using {web_strategy}: {element_id}")
                         return element_id, parsed_result
             except Exception as e:
-                print(f"⚠️ Web strategy {web_strategy} failed: {e}")
+                print(f"⚠️ Strategy {web_strategy} failed: {e}")
                 continue
+
+        # STEP 6: If all strategies fail, try page inspection approach
+        print("🔍 All direct strategies failed, trying page inspection...")
+        return await self._find_web_element_by_inspection(target_text, target_lower)
     
-        return None, {"status": "error", "message": f"Web element '{value}' not found"}
-    
-    def _extract_text_from_xpath_or_value(self, value: str) -> str:
-        """Extract actual text content from XPath or return the value as-is."""
-        # If it looks like an XPath with contains(text(), '...'), extract the text
+
+    def _analyze_html_for_candidates(self, html_source: str, target_text: str, target_lower: str) -> List[Tuple[str, str]]:
+        """Analyze HTML source to find potential element candidates."""
         import re
-        # Multiple patterns to handle different XPath formats
-        patterns = [
-        r"contains\(@text,\s*['\"]([^'\"]+)['\"]",        # contains(@text, 'text')  
-        r"contains\(@label,\s*['\"]([^'\"]+)['\"]",       # contains(@label, 'text')
-        r"contains\(@name,\s*['\"]([^'\"]+)['\"]",        # contains(@name, 'text')
-        r"contains\(text\(\),\s*['\"]([^'\"]+)['\"]",     # contains(text(), 'text')
-        r"@text\s*=\s*['\"]([^'\"]+)['\"]",               # @text='text'
-        r"@label\s*=\s*['\"]([^'\"]+)['\"]",              # @label='text'
-        r"'([^']+)'",                                     # Any single-quoted text
-        r'"([^"]+)"'                                      # Any double-quoted text
+        candidates = []
+    
+        # Look for input fields with relevant attributes
+        input_patterns = [
+            r'<input[^>]*id=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<input[^>]*name=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<input[^>]*class=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<input[^>]*placeholder=["\']([^"\']*(?:' + re.escape(target_text) + r')[^"\']*)["\']',
         ]
     
+        # Look for buttons with relevant attributes
+        button_patterns = [
+            r'<button[^>]*id=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<button[^>]*class=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<input[^>]*type=["\']submit["\'][^>]*value=["\']([^"\']*(?:' + re.escape(target_text) + r')[^"\']*)["\']',
+        ]
+    
+        # Look for links with relevant attributes
+        link_patterns = [
+            r'<a[^>]*id=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+            r'<a[^>]*class=["\']([^"\']*(?:' + re.escape(target_lower) + r')[^"\']*)["\']',
+        ]
+    
+        # Search for input field candidates
+        for pattern in input_patterns:
+            matches = re.findall(pattern, html_source, re.IGNORECASE)
+            for match in matches:
+                if 'id=' in pattern:
+                    candidates.append(("id", match))
+                elif 'name=' in pattern:
+                    candidates.append(("name", match))
+                elif 'class=' in pattern:
+                    candidates.append(("xpath", f"//*[contains(@class, '{match}')]"))
+    
+        # Search for button candidates
+        for pattern in button_patterns:
+            matches = re.findall(pattern, html_source, re.IGNORECASE)
+            for match in matches:
+                if 'id=' in pattern:
+                    candidates.append(("id", match))
+                elif 'class=' in pattern:
+                    candidates.append(("xpath", f"//*[contains(@class, '{match}')]"))
+                elif 'value=' in pattern:
+                    candidates.append(("xpath", f"//input[@value='{match}']"))
+    
+        # Search for link candidates
+        for pattern in link_patterns:
+            matches = re.findall(pattern, html_source, re.IGNORECASE)
+            for match in matches:
+                if 'id=' in pattern:
+                    candidates.append(("id", match))
+                elif 'class=' in pattern:
+                    candidates.append(("xpath", f"//*[contains(@class, '{match}')]"))
+    
+        print(f"🔍 Page analysis found {len(candidates)} potential candidates")
+        return candidates
+    
+    async def _build_smart_strategies(self, target_lower: str, target_text: str) -> List[Tuple[str, str]]:
+        """Build intelligent strategies based on semantic analysis."""
+        strategies = []
+    
+        # USERNAME/EMAIL FIELD DETECTION
+        username_keywords = ['username', 'user', 'email', 'login', 'account', 'userid', 'user_name', 'user-name']
+        if any(keyword in target_lower for keyword in username_keywords):
+            strategies.extend([
+                # Common ID patterns
+                ("id", "username"), ("id", "user"), ("id", "email"), ("id", "login"),
+                ("id", "user-name"), ("id", "user_name"), ("id", "userid"), ("id", "account"),
+                # Common name patterns
+                ("name", "username"), ("name", "user"), ("name", "email"), ("name", "login"),
+                ("name", "user-name"), ("name", "user_name"), ("name", "userid"),
+                # Input type and placeholder patterns
+                ("xpath", "//input[@type='text'][1]"),  # First text input
+                ("xpath", "//input[@type='email']"),     # Email input type
+                ("xpath", "//input[contains(@placeholder, 'username') or contains(@placeholder, 'user') or contains(@placeholder, 'email') or contains(@placeholder, 'login')]"),
+                # Data attribute patterns
+                ("xpath", "//input[contains(@data-test, 'username') or contains(@data-test, 'user') or contains(@data-test, 'login')]"),
+                ("xpath", "//input[contains(@data-testid, 'username') or contains(@data-testid, 'user') or contains(@data-testid, 'login')]"),
+                # Class patterns
+                ("xpath", "//input[contains(@class, 'username') or contains(@class, 'user') or contains(@class, 'email') or contains(@class, 'login')]"),
+            ])
+    
+        # PASSWORD FIELD DETECTION
+        password_keywords = ['password', 'pass', 'pwd', 'passcode', 'passphrase']
+        if any(keyword in target_lower for keyword in password_keywords):
+            strategies.extend([
+                # Common ID patterns
+                ("id", "password"), ("id", "pass"), ("id", "pwd"), ("id", "passcode"),
+                # Common name patterns  
+                ("name", "password"), ("name", "pass"), ("name", "pwd"), ("name", "passcode"),
+                # Password input type (most reliable)
+                ("xpath", "//input[@type='password']"),
+                # Placeholder patterns
+                ("xpath", "//input[contains(@placeholder, 'password') or contains(@placeholder, 'pass')]"),
+                # Data attribute patterns
+                ("xpath", "//input[contains(@data-test, 'password') or contains(@data-test, 'pass')]"),
+                ("xpath", "//input[contains(@data-testid, 'password') or contains(@data-testid, 'pass')]"),
+                # Class patterns
+                ("xpath", "//input[contains(@class, 'password') or contains(@class, 'pass')]"),
+            ])
+    
+        # BUTTON/SUBMIT DETECTION
+        button_keywords = ['login', 'submit', 'sign in', 'log in', 'continue', 'next', 'enter', 'go', 'send', 'confirm']
+        if any(keyword in target_lower for keyword in button_keywords):
+            # Try common button IDs first
+            button_ids = ['login', 'submit', 'signin', 'login-button', 'submit-button', 'continue', 'next', 'send']
+            for btn_id in button_ids:
+                strategies.append(("id", btn_id))
+                strategies.append(("name", btn_id))
+        
+            strategies.extend([
+                #Submit input buttons
+                ("xpath", "//input[@type='submit']"),
+                ("xpath", "//button[@type='submit']"),
+                # Value-based detection
+                ("xpath", f"//input[@value='{target_text}' or contains(@value, '{target_lower}')]"),
+                ("xpath", f"//button[text()='{target_text}' or contains(text(), '{target_text}')]"),
+                # Generic button patterns
+                ("xpath", "//button[contains(@class, 'btn') or contains(@class, 'button')]"),
+                ("xpath", f"//button[contains(@class, '{target_lower}')]"),
+                # Data attribute patterns
+                ("xpath", f"//button[contains(@data-test, '{target_lower}') or contains(@data-testid, '{target_lower}')]"),
+                ("xpath", f"//input[contains(@data-test, '{target_lower}') or contains(@data-testid, '{target_lower}')]"),
+            ])
+    
+        # LINK DETECTION
+        link_keywords = ['logout', 'sign out', 'log out', 'exit', 'quit', 'home', 'back', 'menu', 'settings']
+        if any(keyword in target_lower for keyword in link_keywords):
+            strategies.extend([
+                # Direct link text
+                ("link text", target_text),
+                ("partial link text", target_text),
+                # ID-based links
+                ("id", target_lower), ("id", target_lower.replace(' ', '-')), ("id", target_lower.replace(' ', '_')),
+                # Link patterns
+                ("xpath", f"//a[contains(text(), '{target_text}') or @title='{target_text}']"),
+                ("xpath", f"//a[contains(@href, '{target_lower}') or contains(@class, '{target_lower}')]"),
+                # Data attribute patterns
+                ("xpath", f"//a[contains(@data-test, '{target_lower}') or contains(@data-testid, '{target_lower}')]"),
+            ])
+    
+        # MENU/NAVIGATION DETECTION
+        menu_keywords = ['menu', 'hamburger', 'burger', 'nav', 'navigation', 'toggle']
+        if any(keyword in target_lower for keyword in menu_keywords):
+            strategies.extend([
+                # Common menu IDs
+                ("id", "menu"), ("id", "nav"), ("id", "hamburger"), ("id", "burger"), ("id", "toggle"),
+                ("id", "menu-button"), ("id", "nav-button"), ("id", "menu-toggle"),
+                # Class-based detection
+                ("xpath", "//button[contains(@class, 'menu') or contains(@class, 'burger') or contains(@class, 'hamburger')]"),
+                ("xpath", "//div[contains(@class, 'menu') or contains(@class, 'burger') or contains(@class, 'hamburger')]"),
+                # Icon patterns (common in modern web)
+                ("xpath", "//button[contains(@class, 'icon') and (contains(@class, 'menu') or contains(@aria-label, 'menu'))]"),
+                # ARIA patterns
+                ("xpath", "//button[@aria-label='Menu' or @aria-label='Open menu' or contains(@aria-label, 'menu')]"),
+            ])
+    
+        # GENERIC TEXT/ELEMENT DETECTION (for anything else)
+        else:
+            # Try common patterns for any text
+            safe_text = target_lower.replace(' ', '-')
+            safe_text_underscore = target_lower.replace(' ', '_')
+        
+            strategies.extend([
+                # ID patterns
+                ("id", target_lower), ("id", safe_text), ("id", safe_text_underscore),
+                # Name patterns
+                ("name", target_lower), ("name", safe_text), ("name", safe_text_underscore),
+                # Class patterns
+                ("xpath", f"//*[contains(@class, '{target_lower}') or contains(@class, '{safe_text}')]"),
+                # Data patterns
+                ("xpath", f"//*[contains(@data-test, '{target_lower}') or contains(@data-testid, '{target_lower}')]"),
+                # Generic text content
+                ("xpath", f"//*[contains(text(), '{target_text}') or @title='{target_text}' or @alt='{target_text}']"),
+            ])
+    
+        return strategies
+    
+    def _extract_text_from_xpath_or_value(self, value: str) -> str:
+        """Intelligently extract meaningful text from any input format."""
+        import re
+    
+        # STEP 1: If it's already clean text (no special characters), return as-is
+        if not any(char in value for char in ['@', '/', '[', ']', '(', ')', '"', "'"]):
+            return value.strip()
+    
+        # STEP 2: XPath and attribute patterns (ordered by reliability)
+        patterns = [
+            # Web-specific HTML attributes (most reliable for web)
+            r"@id\s*=\s*['\"]([^'\"]+)['\"]",                 # @id='value'
+            r"@name\s*=\s*['\"]([^'\"]+)['\"]",               # @name='value'  
+            r"@class\s*=\s*['\"]([^'\"]+)['\"]",              # @class='value'
+            r"@data-test\s*=\s*['\"]([^'\"]+)['\"]",          # @data-test='value'
+            r"@data-testid\s*=\s*['\"]([^'\"]+)['\"]",        # @data-testid='value'
+            r"@placeholder\s*=\s*['\"]([^'\"]+)['\"]",        # @placeholder='value'
+            r"@value\s*=\s*['\"]([^'\"]+)['\"]",              # @value='value'
+            r"@type\s*=\s*['\"]([^'\"]+)['\"]",               # @type='value'
+            r"@href\s*=\s*['\"]([^'\"]+)['\"]",               # @href='value'
+            r"@title\s*=\s*['\"]([^'\"]+)['\"]",              # @title='value'
+            r"@alt\s*=\s*['\"]([^'\"]+)['\"]",                # @alt='value'
+        
+            # Mobile app attributes (for native contexts)
+            r"@text\s*=\s*['\"]([^'\"]+)['\"]",               # @text='value'
+            r"@label\s*=\s*['\"]([^'\"]+)['\"]",              # @label='value'
+            r"@name\s*=\s*['\"]([^'\"]+)['\"]",               # @name='value' (iOS)
+            r"@content-desc\s*=\s*['\"]([^'\"]+)['\"]",       # @content-desc='value' (Android)
+            r"@resource-id\s*=\s*['\"]([^'\"]+)['\"]",        # @resource-id='value' (Android)
+        
+            # XPath text functions
+            r"contains\(text\(\),\s*['\"]([^'\"]+)['\"]",     # contains(text(), 'value')
+            r"text\(\)\s*=\s*['\"]([^'\"]+)['\"]",            # text()='value'
+            r"normalize-space\(text\(\)\)\s*=\s*['\"]([^'\"]+)['\"]",  # normalize-space(text())='value'
+        
+            # XPath attribute contains functions
+            r"contains\(@text,\s*['\"]([^'\"]+)['\"]",        # contains(@text, 'value')
+            r"contains\(@label,\s*['\"]([^'\"]+)['\"]",       # contains(@label, 'value')
+            r"contains\(@name,\s*['\"]([^'\"]+)['\"]",        # contains(@name, 'value')
+            r"contains\(@class,\s*['\"]([^'\"]+)['\"]",       # contains(@class, 'value')
+            r"contains\(@id,\s*['\"]([^'\"]+)['\"]",          # contains(@id, 'value')
+            r"contains\(@data-test,\s*['\"]([^'\"]+)['\"]",   # contains(@data-test, 'value')
+            r"contains\(@placeholder,\s*['\"]([^'\"]+)['\"]", # contains(@placeholder, 'value')
+        
+            # Generic quoted text (fallback)
+            r"'([^']+)'",                                     # Any single-quoted text
+            r'"([^"]+)"'                                      # Any double-quoted text
+        ]
+
+    # STEP 3: Try each pattern and return the first meaningful match
         for i, pattern in enumerate(patterns):
             matches = re.findall(pattern, value, re.IGNORECASE)
-            print(f"📋 Pattern {i+1} ({pattern}): {matches}")
-        
-            # Return the first non-empty match
-            for match in matches:
-                if match.strip():  # Make sure it's not empty
-                    print(f"✅ Pattern {i+1} matched! Extracted: '{match}'")
-                    return match.strip()
+            print(f"📋 Pattern {i+1} ({pattern[:50]}...): {matches}")
     
-        print(f"❌ No extraction pattern worked, using original value")
-        return value  # Return original value if no pattern matches
+            # Return the first non-empty, meaningful match
+            for match in matches:
+                clean_match = match.strip()
+                if clean_match and len(clean_match) > 0:
+                    # Filter out obviously non-meaningful matches
+                    if not self._is_meaningful_text(clean_match):
+                        continue
+                    
+                    print(f"✅ Pattern {i+1} extracted meaningful text: '{clean_match}'")
+                    return clean_match
+
+        # STEP 4: If no pattern worked, try intelligent parsing
+        intelligent_result = self._intelligent_text_parsing(value)
+        if intelligent_result != value:
+            print(f"✅ Intelligent parsing extracted: '{intelligent_result}'")
+            return intelligent_result
+
+        print(f"❌ No extraction worked, using original value: '{value}'")
+        return value
+
+def _is_meaningful_text(self, text: str) -> bool:
+    """Check if extracted text is meaningful (not just technical IDs)."""
+    text_lower = text.lower()
+    
+    # Filter out obviously technical/non-meaningful values
+    technical_patterns = [
+        r'^[a-f0-9]{8,}$',          # Long hex strings
+        r'^[0-9]{8,}$',             # Long numeric IDs
+        r'^[a-z0-9_-]{20,}$',       # Long technical identifiers
+        r'^\w+\.\w+\.\w+',          # Package-like names (com.example.app)
+    ]
+    
+    for pattern in technical_patterns:
+        if re.match(pattern, text_lower):
+            return False
+    
+    # Consider it meaningful if it contains common UI words
+    meaningful_keywords = [
+        'username', 'password', 'login', 'email', 'submit', 'button',
+        'menu', 'logout', 'sign', 'user', 'pass', 'name', 'text',
+        'search', 'click', 'tap', 'press', 'next', 'back', 'home',
+        'settings', 'profile', 'account', 'continue', 'cancel', 'ok'
+    ]
+    
+    return any(keyword in text_lower for keyword in meaningful_keywords) or len(text) <= 15
+
+def _intelligent_text_parsing(self, value: str) -> str:
+    """Last resort: intelligent parsing of complex XPath or selectors."""
+    import re
+    
+    # Try to extract the most meaningful part from complex expressions
+    
+    # 1. If it's a complex XPath, try to get the most specific part
+    if '//' in value and '[' in value:
+        # Extract text from the most specific selector part
+        parts = value.split('//')[-1]  # Get the last part after //
+        if '[' in parts:
+            # Try to extract meaningful text from conditions
+            condition_text = re.search(r'\[([^\]]+)\]', parts)
+            if condition_text:
+                return self._extract_text_from_xpath_or_value(condition_text.group(1))
+    
+    # 2. If it contains equals signs, extract the value part
+    if '=' in value:
+        parts = value.split('=')
+        if len(parts) >= 2:
+            potential_value = parts[-1].strip().strip('\'"')
+            if self._is_meaningful_text(potential_value):
+                return potential_value
+    
+    # 3. Extract words that look like UI elements
+    words = re.findall(r'\b[a-zA-Z]{3,}\b', value)
+    meaningful_words = [word for word in words if self._is_meaningful_text(word)]
+    
+    if meaningful_words:
+        return meaningful_words[0]  # Return the first meaningful word
+    
+    return value  # Return original if nothing else works
