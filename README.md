@@ -221,6 +221,125 @@ Claude will use the MCP server to:
   "app_activity": ".MainActivity"
 }
 ```
+## 🚀 Quick Start with Gemini CLI
+
+The easiest way to run mobile automation commands is using our simple CLI wrapper with Gemini.
+
+### Setup Instructions
+- 🧬 Clone the project
+- 📂 Open Terminal
+- Navigate to your project repository
+
+1. **Make the setup script executable:**
+   ```bash
+   chmod +x mobile-setup.sh
+   ```
+
+2. **Load the mobile function:**
+   ```bash
+   source mobile-setup.sh
+   ```
+   
+   You should see:
+   ```
+   Mobile automation function loaded!
+   Usage: mobile "Launch Settings on iPhone"
+          mobile -i
+          mobile --claude "Open Instagram"
+   
+   To make this permanent, add this to your ~/.bashrc or ~/.zshrc:
+   source "/path/to/your/mobile-setup.sh"
+   ```
+
+3. **Test the function:**
+   ```bash
+   # Test help
+   mobile -h
+   
+   # Test interactive mode
+   mobile -i
+   
+   # Test single command
+   mobile "Launch Settings on iPhone"
+   
+   # Test with Claude
+   mobile --claude "Open Instagram and scroll down"
+   ```
+
+### Make it Permanent (Optional)
+
+To have the `mobile` function available every time you open a terminal:
+
+**For Bash users:**
+```bash
+echo "source $(pwd)/mobile-setup.sh" >> ~/.bashrc
+```
+
+**For Zsh users:**
+```bash
+echo "source $(pwd)/mobile-setup.sh" >> ~/.zshrc
+```
+
+**For Fish shell users:**
+```bash
+mkdir -p ~/.config/fish/functions
+# Then manually create the fish function file
+```
+
+### Usage Examples
+
+```bash
+# Single prompts (default Gemini)
+mobile "Launch Settings on iPhone 15 Pro Max"
+mobile "Open Instagram and like the first post"
+mobile "Calculate 15 + 25 in Calculator app"
+mobile "Launch Safari and go to google.com"
+
+# Single prompts with Claude
+mobile --claude "Open Notes and create a new note"
+mobile --claude "Launch Camera and take a photo"
+
+# Interactive modes
+mobile -i                    # Interactive with Gemini
+mobile --claude -i           # Interactive with Claude
+mobile --interactive         # Interactive with Gemini
+
+# Help
+mobile -h
+mobile --help
+```
+
+### Benefits
+
+✅ **No PATH modifications needed**  
+✅ **Self-contained in your project directory**  
+✅ **Works from any directory once loaded**  
+✅ **Easy to modify and customize**  
+✅ **No external files created**  
+✅ **Portable - just copy the script**
+
+### Quick Workflow
+
+1. **One-time setup:**
+   ```bash
+   chmod +x mobile-setup.sh
+   source mobile-setup.sh
+   ```
+
+2. **Daily usage:**
+   ```bash
+   mobile "Launch Settings"
+   mobile "Open Instagram"
+   mobile -i  # for interactive mode
+   ```
+
+3. **For permanent access** (optional):
+   ```bash
+   echo "source $(pwd)/mobile-setup.sh" >> ~/.bashrc
+   # Then restart terminal or run: source ~/.bashrc
+   ```
+
+---
 
 ## Troubleshooting
 
