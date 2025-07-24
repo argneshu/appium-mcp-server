@@ -316,6 +316,67 @@ mobile -h
 mobile --help
 ```
 
+For Windows:
+
+Run the setup script:
+cmdmobile-setup.bat
+You should see:
+Mobile automation command created!
+
+Usage: mobile "Launch Settings on iPhone"
+       mobile -i
+       mobile --claude "Open Instagram"
+
+The 'mobile' command is now available for this session.
+You should see:
+Mobile automation function loaded!
+Usage: mobile "Launch Settings on iPhone"
+       mobile -i
+       mobile --claude "Open Instagram"
+
+To make this permanent, add this to your ~/.bashrc or ~/.zshrc:
+source "/path/to/your/mobile-setup.sh"
+
+Test the function:
+bash# Test help
+mobile -h
+
+# Test interactive mode
+mobile -i
+
+# Test single command
+mobile "Launch Settings on iPhone"
+
+# Test with Claude
+mobile --claude "Open Instagram and scroll down"
+
+Make it Permanent (Optional)
+For Windows:
+Command Prompt:
+
+Add the script directory to your system PATH, or
+Run mobile-setup.bat each time you open a new command prompt
+
+Usage Examples
+bash# Single prompts (default Gemini)
+mobile "Launch Settings on iPhone 15 Pro Max"
+mobile "Open Instagram and like the first post"
+mobile "Calculate 15 + 25 in Calculator app"
+mobile "Launch Safari and go to google.com"
+
+# Single prompts with Claude
+mobile --claude "Open Notes and create a new note"
+mobile --claude "Launch Camera and take a photo"
+
+# Interactive modes
+mobile -i                    # Interactive with Gemini
+mobile --claude -i           # Interactive with Claude
+mobile --interactive         # Interactive with Gemini
+
+# Help
+mobile -h
+mobile --help
+
 ### Benefits
 
 ✅ **No PATH modifications needed**  
