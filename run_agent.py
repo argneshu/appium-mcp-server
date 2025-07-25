@@ -438,6 +438,21 @@ async def execute_tool_calls(json_blocks):
                         
                 elif tool_name == "appium_tap_element":
                     element_id = tool_args.get("element_id")
+                    # FIXED: Handle Gemini's generic element ID references
+                    # ADDITIONAL: Handle common Gemini patterns at the execution level too
+                    print(f"🔍 Tap request - Original element_id: '{element_id}'")
+                    gemini_patterns = [
+                        "element_id_from_previous_step", 
+                        "previous_element_id", 
+                        "found_element_id",
+                        "current_element_id",
+                        "last_element_id",
+                        "element_from_previous_step",
+                        "previous_element"
+                        ]
+                    if element_id in gemini_patterns:
+                        print(f"🔄 Gemini used generic element ID '{element_id}', using last found element: {client.last_element_id}")
+                        element_id = client.last_element_id
                     
                     # Enhanced tap with automatic element resolution
                     result = await client.smart_tap_element(element_id)
@@ -452,6 +467,24 @@ async def execute_tool_calls(json_blocks):
                         
                 elif tool_name == "appium_get_text":
                     element_id = tool_args.get("element_id")
+
+                    # ENHANCED: Debug logging for element ID
+                    print(f"🔍 Get text request - Original element_id: '{element_id}'")
+
+                    # ADDITIONAL: Handle common Gemini patterns at the execution level too
+                    gemini_patterns = [
+                        "element_id_from_previous_step", 
+                        "previous_element_id", 
+                        "found_element_id",
+                        "current_element_id", 
+                        "last_element_id",
+                        "element_from_previous_step",
+                        "previous_element"
+                    ]
+
+                    if element_id in gemini_patterns:
+                        print(f"🔄 Detected Gemini generic pattern '{element_id}', using last found: {client.last_element_id}")
+                        element_id = client.last_element_id
                     
                     # Enhanced get text with automatic element resolution
                     result = await client.smart_get_text(element_id)
@@ -469,6 +502,22 @@ async def execute_tool_calls(json_blocks):
                 elif tool_name == "appium_input_text":
                     text = tool_args.get("text")
                     element_id = tool_args.get("element_id")
+                    print(f"🔍 Input text request - Original element_id: '{element_id}', text: '{text}'")
+                    gemini_patterns = [
+                        "element_id_from_previous_step", 
+                        "previous_element_id", 
+                        "found_element_id",
+                        "current_element_id",
+                        "last_element_id",
+                        "element_from_previous_step",
+                        "previous_element"
+                    ]
+
+
+                    # FIXED: Handle Gemini's generic element ID references
+                    if element_id in gemini_patterns:
+                        print(f"🔄 Gemini used generic element ID '{element_id}', using last found element: {client.last_element_id}")
+                        element_id = client.last_element_id
                     
                     # Enhanced input text with automatic element resolution
                     result = await client.smart_input_text(text, element_id)

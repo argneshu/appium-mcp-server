@@ -473,8 +473,25 @@ class EnhancedMCPClient:
     async def smart_tap_element(self, element_id: str = None) -> Dict[str, Any]:
         """Smart tap using your existing server."""
         
-        # If no element_id provided, use the last found element
-        if not element_id:
+        # ENHANCED: Handle Gemini's generic element ID patterns
+        invalid_patterns = [
+            "element_id_from_previous_step", 
+            "previous_element_id", 
+            "found_element_id",
+            "current_element_id", 
+            "last_element_id",
+            "element_from_previous_step",
+            "previous_element",
+            None,
+            "",
+            "null"
+        ]
+    
+        # If element_id is invalid or not provided, use the last found element
+        if element_id in invalid_patterns:
+            element_id = self.last_element_id
+            print(f"🔄 Using last found element ID: {element_id}")
+        elif not element_id:
             element_id = self.last_element_id
         
         if not element_id:
@@ -487,8 +504,25 @@ class EnhancedMCPClient:
     async def smart_get_text(self, element_id: str = None) -> Dict[str, Any]:
         """Smart get text with automatic element resolution and stale element recovery."""
 
-        # If no element_id provided, use the last found element
-        if not element_id:
+        # ENHANCED: Handle Gemini's generic element ID patterns
+        invalid_patterns = [
+            "element_id_from_previous_step", 
+            "previous_element_id", 
+            "found_element_id",
+            "current_element_id",
+            "last_element_id",
+            "element_from_previous_step",
+            "previous_element",
+            None,
+            "",
+            "null"
+        ]
+    
+        # If element_id is invalid or not provided, use the last found element
+        if element_id in invalid_patterns:
+            element_id = self.last_element_id
+            print(f"🔄 Using last found element ID: {element_id}")
+        elif not element_id:
             element_id = self.last_element_id
 
         if not element_id:
@@ -670,8 +704,25 @@ class EnhancedMCPClient:
     async def smart_input_text(self, text: str, element_id: str = None) -> Dict[str, Any]:
         """Smart input text with automatic element resolution."""
         
-        # If no element_id provided, use the last found element
-        if not element_id:
+        # ENHANCED: Handle Gemini's generic element ID patterns
+        invalid_patterns = [
+            "element_id_from_previous_step", 
+            "previous_element_id", 
+            "found_element_id",
+            "current_element_id",
+            "last_element_id",
+            "element_from_previous_step",
+            "previous_element",
+            None,
+            "",
+            "null"
+        ]
+    
+        # If element_id is invalid or not provided, use the last found element
+        if element_id in invalid_patterns:
+            element_id = self.last_element_id
+            print(f"🔄 Using last found element ID: {element_id}")
+        elif not element_id:
             element_id = self.last_element_id
         
         if element_id:
