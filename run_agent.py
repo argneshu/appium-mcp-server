@@ -453,6 +453,11 @@ async def execute_tool_calls(json_blocks):
                     if element_id in gemini_patterns:
                         print(f"🔄 Gemini used generic element ID '{element_id}', using last found element: {client.last_element_id}")
                         element_id = client.last_element_id
+
+                     # STEP 2: Simple validation - ignore obviously fake element IDs  
+                    elif element_id and not element_id.startswith(":"):
+                        print(f"🔄 Invalid element_id format '{element_id}' (real IDs start with ':'), using last found: {client.last_element_id}")
+                        element_id = client.last_element_id
                     
                     # Enhanced tap with automatic element resolution
                     result = await client.smart_tap_element(element_id)
@@ -485,6 +490,10 @@ async def execute_tool_calls(json_blocks):
                     if element_id in gemini_patterns:
                         print(f"🔄 Detected Gemini generic pattern '{element_id}', using last found: {client.last_element_id}")
                         element_id = client.last_element_id
+                      # STEP 2: Simple validation - ignore obviously fake element IDs
+                    elif element_id and not element_id.startswith(":"):
+                        print(f"🔄 Invalid element_id format '{element_id}' (real IDs start with ':'), using last found: {client.last_element_id}")
+                        element_id = client.last_element_id
                     
                     # Enhanced get text with automatic element resolution
                     result = await client.smart_get_text(element_id)
@@ -513,10 +522,14 @@ async def execute_tool_calls(json_blocks):
                         "previous_element"
                     ]
 
-
                     # FIXED: Handle Gemini's generic element ID references
                     if element_id in gemini_patterns:
                         print(f"🔄 Gemini used generic element ID '{element_id}', using last found element: {client.last_element_id}")
+                        element_id = client.last_element_id
+
+                    # STEP 2: Simple validation - ignore obviously fake element IDs
+                    elif element_id and not element_id.startswith(":"):
+                        print(f"🔄 Invalid element_id format '{element_id}' (real IDs start with ':'), using last found: {client.last_element_id}")
                         element_id = client.last_element_id
                     
                     # Enhanced input text with automatic element resolution
