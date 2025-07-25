@@ -497,10 +497,34 @@ class EnhancedMCPClient:
         if not element_id:
             return {"status": "error", "message": "No element ID available for tap"}
         
+         # STEP 1: Get page fingerprint before tap
+        print(f"📊 Getting page fingerprint before tap...")
+        fingerprint_before = await self._get_page_fingerprint()
+        
+        # STEP 2: Attempt standard tap
         print(f"👆 Tapping element: {element_id}")
         result = await self.call_tool("appium_tap_element", {"element_id": element_id})
-        return self.parse_tool_result(result)
-    
+        parsed_result = self.parse_tool_result(result)
+       
+        if parsed_result.get('status') != 'success':
+            print(f"❌ Standard tap failed: {parsed_result}")
+            return parsed_result
+        
+        # STEP 3: Wait and check if tap actually worked
+        print("⏰ Waiting for tap to take effect...")
+        await asyncio.sleep(2)
+
+        fingerprint_after = await self._get_page_fingerprint()
+        tap_worked = self._did_page_change(fingerprint_before, fingerprint_after)
+
+        if tap_worked:
+            print("✅ Standard tap successful - page changed!")
+            return {"status": "success", "message": "Standard tap successful"}
+
+         # STEP 4: Standard tap didn't work, try alternative strategies
+        print("⚠️ Standard tap didn't change page - trying alternative strategies...")
+        return await self._try_alternative_tap_methods(element_id, fingerprint_before)
+
     async def smart_get_text(self, element_id: str = None) -> Dict[str, Any]:
         """Smart get text with automatic element resolution and stale element recovery."""
 
@@ -1095,61 +1119,305 @@ class EnhancedMCPClient:
         print(f"❌ No extraction worked, using original value: '{value}'")
         return value
 
-def _is_meaningful_text(self, text: str) -> bool:
-    """Check if extracted text is meaningful (not just technical IDs)."""
-    text_lower = text.lower()
+    def _is_meaningful_text(self, text: str) -> bool:
+        """Check if extracted text is meaningful (not just technical IDs)."""
+        text_lower = text.lower()
     
-    # Filter out obviously technical/non-meaningful values
-    technical_patterns = [
-        r'^[a-f0-9]{8,}$',          # Long hex strings
-        r'^[0-9]{8,}$',             # Long numeric IDs
-        r'^[a-z0-9_-]{20,}$',       # Long technical identifiers
-        r'^\w+\.\w+\.\w+',          # Package-like names (com.example.app)
-    ]
+        # Filter out obviously technical/non-meaningful values
+        technical_patterns = [
+            r'^[a-f0-9]{8,}$',          # Long hex strings
+            r'^[0-9]{8,}$',             # Long numeric IDs
+            r'^[a-z0-9_-]{20,}$',       # Long technical identifiers
+            r'^\w+\.\w+\.\w+',          # Package-like names (com.example.app)
+        ]
     
-    for pattern in technical_patterns:
-        if re.match(pattern, text_lower):
+        for pattern in technical_patterns:
+            if re.match(pattern, text_lower):
+                return False
+    
+        # Consider it meaningful if it contains common UI words
+        meaningful_keywords = [
+            'username', 'password', 'login', 'email', 'submit', 'button',
+            'menu', 'logout', 'sign', 'user', 'pass', 'name', 'text',
+            'search', 'click', 'tap', 'press', 'next', 'back', 'home',
+            'settings', 'profile', 'account', 'continue', 'cancel', 'ok'
+        ]
+    
+        return any(keyword in text_lower for keyword in meaningful_keywords) or len(text) <= 15
+
+    def _intelligent_text_parsing(self, value: str) -> str:
+        """Last resort: intelligent parsing of complex XPath or selectors."""
+        import re
+    
+        # Try to extract the most meaningful part from complex expressions
+    
+        # 1. If it's a complex XPath, try to get the most specific part
+        if '//' in value and '[' in value:
+            # Extract text from the most specific selector part
+            parts = value.split('//')[-1]  # Get the last part after //
+            if '[' in parts:
+                # Try to extract meaningful text from conditions
+                condition_text = re.search(r'\[([^\]]+)\]', parts)
+                if condition_text:
+                    return self._extract_text_from_xpath_or_value(condition_text.group(1))
+    
+        # 2. If it contains equals signs, extract the value part
+        if '=' in value:
+            parts = value.split('=')
+            if len(parts) >= 2:
+                potential_value = parts[-1].strip().strip('\'"')
+                if self._is_meaningful_text(potential_value):
+                    return potential_value
+    
+        # 3. Extract words that look like UI elements
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', value)
+        meaningful_words = [word for word in words if self._is_meaningful_text(word)]
+    
+        if meaningful_words:
+            return meaningful_words[0]  # Return the first meaningful word
+    
+        return value  # Return original if nothing else works
+    
+    async def _get_page_fingerprint(self) -> Dict[str, Any]:
+        """Get a generic fingerprint of the current page state."""
+        try:
+            result = await self.call_tool("appium_get_page_source", {"full": False})
+            parsed_result = self.parse_tool_result(result)
+        
+            if parsed_result.get('status') == 'success':
+                page_source = parsed_result.get('page_source', '')
+            
+                # Generic page fingerprint - not specific to any site
+                fingerprint = {
+                    'source_length': len(page_source),
+                    'source_hash': hash(page_source),  # Simple content hash
+                    'element_count': self._count_elements(page_source),
+                    'form_count': page_source.lower().count('<form'),
+                    'button_count': page_source.lower().count('<button') + page_source.lower().count('type="submit"'),
+                    'link_count': page_source.lower().count('<a href'),
+                    'input_count': page_source.lower().count('<input'),
+                    'title': self._extract_title(page_source),
+                    'has_forms': '<form' in page_source.lower(),
+                    'has_navigation': any(nav in page_source.lower() for nav in ['nav', 'menu', 'header']),
+                    'unique_ids': self._extract_unique_ids(page_source),
+                    'unique_classes': self._extract_unique_classes(page_source),
+                    'text_snippets': self._extract_text_snippets(page_source)
+                }
+            
+                print(f"📊 Page fingerprint: elements={fingerprint['element_count']}, hash={abs(fingerprint['source_hash']) % 10000}")
+                return fingerprint
+        
+        except Exception as e:
+            print(f"⚠️ Error getting page fingerprint: {e}")
+    
+        return {}
+    
+    def _count_elements(self, page_source: str) -> int:
+        """Count total HTML elements in page."""
+        import re
+        # Count opening tags
+        tags = re.findall(r'<[^/!][^>]*>', page_source)
+        return len(tags)
+
+    def _extract_unique_ids(self, page_source: str) -> List[str]:
+        """Extract unique element IDs from page."""
+        import re
+        ids = re.findall(r'id=["\']([^"\']+)["\']', page_source, re.IGNORECASE)
+        return list(set(ids))[:10]  # Limit to first 10 unique IDs
+
+    def _extract_unique_classes(self, page_source: str) -> List[str]:
+        """Extract unique CSS classes from page."""
+        import re
+        classes = re.findall(r'class=["\']([^"\']+)["\']', page_source, re.IGNORECASE)
+        all_classes = []
+        for class_attr in classes:
+            all_classes.extend(class_attr.split())
+        return list(set(all_classes))[:10]  # Limit to first 10 unique classes
+    
+    def _extract_text_snippets(self, page_source: str) -> List[str]:
+        """Extract meaningful text snippets from page."""
+        import re
+        # Remove scripts and styles
+        clean_source = re.sub(r'<script[^>]*>.*?</script>', '', page_source, flags=re.DOTALL)
+        clean_source = re.sub(r'<style[^>]*>.*?</style>', '', clean_source, flags=re.DOTALL)
+    
+        # Extract text content
+        text_content = re.sub(r'<[^>]+>', ' ', clean_source)
+        words = text_content.split()
+    
+        # Get meaningful words (longer than 2 chars, not all numbers)
+        meaningful_words = [w for w in words if len(w) > 2 and not w.isdigit() and w.isalnum()]
+        return meaningful_words[:20]  # Limit to first 20 words
+
+    def _extract_title(self, page_source: str) -> str:
+        """Extract page title."""
+        import re
+        title_match = re.search(r'<title[^>]*>([^<]+)</title>', page_source, re.IGNORECASE)
+        return title_match.group(1).strip() if title_match else ""
+
+    def _did_page_change(self, before: Dict, after: Dict) -> bool:
+        """Generic method to detect if page changed meaningfully."""
+    
+        if not before or not after:
+            print("⚠️ Missing fingerprint data")
             return False
     
-    # Consider it meaningful if it contains common UI words
-    meaningful_keywords = [
-        'username', 'password', 'login', 'email', 'submit', 'button',
-        'menu', 'logout', 'sign', 'user', 'pass', 'name', 'text',
-        'search', 'click', 'tap', 'press', 'next', 'back', 'home',
-        'settings', 'profile', 'account', 'continue', 'cancel', 'ok'
-    ]
+        # Check 1: Content hash changed significantly
+        if before.get('source_hash') != after.get('source_hash'):
+            print("🎯 Page content hash changed!")
+            return True
     
-    return any(keyword in text_lower for keyword in meaningful_keywords) or len(text) <= 15
+        # Check 2: Element count changed significantly (>10% change)
+        before_count = before.get('element_count', 0)
+        after_count = after.get('element_count', 0)
+    
+        if before_count > 0:
+            change_percent = abs(before_count - after_count) / before_count
+            if change_percent > 0.1:  # 10% change in element count
+                print(f"🎯 Element count changed significantly: {before_count} → {after_count}")
+                return True
+    
+        # Check 3: Page title changed
+        if before.get('title') != after.get('title'):
+            print(f"🎯 Page title changed: '{before.get('title')}' → '{after.get('title')}'")
+            return True
+    
+        # Check 4: Form count changed (forms appeared/disappeared)
+        if before.get('form_count') != after.get('form_count'):
+            print(f"🎯 Form count changed: {before.get('form_count')} → {after.get('form_count')}")
+            return True
+    
+        # Check 5: Button count changed significantly
+        before_buttons = before.get('button_count', 0)
+        after_buttons = after.get('button_count', 0)
+        if abs(before_buttons - after_buttons) > 2:  # More than 2 buttons difference
+            print(f"🎯 Button count changed: {before_buttons} → {after_buttons}")
+            return True
+    
+        # Check 6: Unique IDs changed
+        before_ids = set(before.get('unique_ids', []))
+        after_ids = set(after.get('unique_ids', []))
+        new_ids = after_ids - before_ids
+        removed_ids = before_ids - after_ids
+    
+        if len(new_ids) > 2 or len(removed_ids) > 2:
+            print(f"🎯 Significant ID changes: +{len(new_ids)} -{len(removed_ids)}")
+            return True
+    
+        # Check 7: Text content changed significantly
+        before_text = set(before.get('text_snippets', []))
+        after_text = set(after.get('text_snippets', []))
+        text_changes = len(before_text.symmetric_difference(after_text))
+    
+        if text_changes > 5:  # More than 5 text snippets changed
+            print(f"🎯 Significant text changes: {text_changes} snippets different")
+            return True
+    
+        print("⚠️ No significant page changes detected")
+        return False
+    
 
-def _intelligent_text_parsing(self, value: str) -> str:
-    """Last resort: intelligent parsing of complex XPath or selectors."""
-    import re
+    async def _try_alternative_tap_methods(self, element_id: str, original_fingerprint: Dict) -> Dict[str, Any]:
+        """Try alternative tap methods - completely generic."""
     
-    # Try to extract the most meaningful part from complex expressions
+        print("🔄 Trying alternative tap methods...")
     
-    # 1. If it's a complex XPath, try to get the most specific part
-    if '//' in value and '[' in value:
-        # Extract text from the most specific selector part
-        parts = value.split('//')[-1]  # Get the last part after //
-        if '[' in parts:
-            # Try to extract meaningful text from conditions
-            condition_text = re.search(r'\[([^\]]+)\]', parts)
-            if condition_text:
-                return self._extract_text_from_xpath_or_value(condition_text.group(1))
+        # Method 1: JavaScript click (for web contexts)
+        if await self._is_web_context():
+            print("🌐 Trying JavaScript-based alternatives...")
+            js_result = await self._try_javascript_alternatives(element_id)
+            if js_result.get('status') == 'success':
+                # Verify it worked
+                new_fingerprint = await self._get_page_fingerprint()
+                if self._did_page_change(original_fingerprint, new_fingerprint):
+                    return js_result
     
-    # 2. If it contains equals signs, extract the value part
-    if '=' in value:
-        parts = value.split('=')
-        if len(parts) >= 2:
-            potential_value = parts[-1].strip().strip('\'"')
-            if self._is_meaningful_text(potential_value):
-                return potential_value
+        # Method 2: Double tap
+        print("🔄 Trying double tap...")
+        try:
+            await self.call_tool("appium_tap_element", {"element_id": element_id})
+            await asyncio.sleep(0.5)
+            result = await self.call_tool("appium_tap_element", {"element_id": element_id})
+            parsed_result = self.parse_tool_result(result)
+        
+            if parsed_result.get('status') == 'success':
+                await asyncio.sleep(2)
+                new_fingerprint = await self._get_page_fingerprint()
+                if self._did_page_change(original_fingerprint, new_fingerprint):
+                    return {"status": "success", "message": "Double tap successful"}
+        except Exception as e:
+            print(f"⚠️ Double tap failed: {e}")
     
-    # 3. Extract words that look like UI elements
-    words = re.findall(r'\b[a-zA-Z]{3,}\b', value)
-    meaningful_words = [word for word in words if self._is_meaningful_text(word)]
+        # Method 3: Scroll and tap
+        print("🔄 Trying scroll and tap...")
+        try:
+            await self.call_tool("appium_scroll", {"direction": "up"})
+            await asyncio.sleep(1)
+            result = await self.call_tool("appium_tap_element", {"element_id": element_id})
+            parsed_result = self.parse_tool_result(result)
+        
+            if parsed_result.get('status') == 'success':
+                await asyncio.sleep(2)
+                new_fingerprint = await self._get_page_fingerprint()
+                if self._did_page_change(original_fingerprint, new_fingerprint):
+                    return {"status": "success", "message": "Scroll and tap successful"}
+        except Exception as e:
+            print(f"⚠️ Scroll and tap failed: {e}")
     
-    if meaningful_words:
-        return meaningful_words[0]  # Return the first meaningful word
+        # Method 4: Try finding similar elements
+        print("🔄 Trying to find alternative elements...")
+        try:
+            alt_result = await self._find_and_tap_alternatives(element_id)
+            if alt_result.get('status') == 'success':
+                new_fingerprint = await self._get_page_fingerprint()
+                if self._did_page_change(original_fingerprint, new_fingerprint):
+                    return alt_result
+        except Exception as e:
+            print(f"⚠️ Alternative element search failed: {e}")
     
-    return value  # Return original if nothing else works
+        return {"status": "error", "message": "All alternative tap methods failed"}
+    
+    async def _try_javascript_alternatives(self, element_id: str) -> Dict[str, Any]:
+        """Try JavaScript alternatives - uses the generic method we created earlier."""
+        return await self._try_javascript_click(element_id)
+
+    async def _find_and_tap_alternatives(self, element_id: str) -> Dict[str, Any]:
+        """Try to find alternative elements that might work better."""
+    
+        # Get element info to find similar elements
+        element_info = await self._get_element_info(element_id)
+    
+        if element_info.get("text"):
+            # Try to find other elements with same text
+            text = element_info["text"]
+            alternative_strategies = [
+                ("xpath", f"//*[text()='{text}']"),
+                ("xpath", f"//*[contains(text(), '{text}')]"),
+                ("xpath", f"//button[text()='{text}']"),
+                ("xpath", f"//a[text()='{text}']"),
+            ]
+        
+            for strategy, value in alternative_strategies:
+                try:
+                    result = await self.call_tool("appium_find_element", {
+                        "strategy": strategy,
+                        "value": value
+                    })
+                    parsed_result = self.parse_tool_result(result)
+                
+                    if parsed_result.get('status') == 'success':
+                        alt_element_id = parsed_result.get('element_id')
+                        if alt_element_id != element_id:  # Different element
+                            print(f"🔄 Trying alternative element: {alt_element_id}")
+                            tap_result = await self.call_tool("appium_tap_element", {
+                                "element_id": alt_element_id
+                            })
+                            tap_parsed = self.parse_tool_result(tap_result)
+                        
+                            if tap_parsed.get('status') == 'success':
+                                return {"status": "success", "message": f"Alternative element tap successful via {strategy}"}
+                except:
+                    continue
+    
+        return {"status": "error", "message": "No alternative elements found"}
+   
