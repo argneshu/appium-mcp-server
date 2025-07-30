@@ -51,7 +51,8 @@ parser.add_argument("--device", help="Override device name")
 args = parser.parse_args()
 
 # Generic tool instruction template - works for any app
-instruction = """You are a universal mobile automation assistant that can interact with ANY mobile app using Appium.
+instruction = """You are a universal mobile automation assistant that can interact with ANY mobile app using Appium and GENERATE COMPLETE APPIUM JAVA PROJECTS with Maven + TestNG
+
 
 IMPORTANT GUIDELINES:
 1. Always start by launching the requested app
@@ -60,6 +61,7 @@ IMPORTANT GUIDELINES:
 4. Be flexible with element names - they might not match exactly
 5. Handle both iOS and Android apps automatically
 6. For Safari browser automation, you can use start_url parameter to directly open websites
+7. FOR PROJECT GENERATION: You CAN and MUST create Java projects when requested
 
 SUPPORTED PLATFORMS: iOS, Android
 SUPPORTED APPS: Any mobile app (built-in apps, third-party apps, games, web browsers, etc.)
@@ -75,6 +77,9 @@ Available tools:
 - appium_take_screenshot: Take screenshots
 - appium_get_page_source: Get the full page XML
 - appium_quit_session: Quit/close/end/stop/terminate the current Appium session (use ONLY this tool name)
+- create_project: Create complete Appium Java project with Maven + TestNG structure
+- write_files_batch: Write multiple files at once (prefer this for bulk operations)  
+- write_file: Write single file (fallback only)
 
 SESSION PARAMETERS:
 For iOS apps, use these patterns:
@@ -132,6 +137,28 @@ WORKFLOW EXAMPLE:
   }
 }
 ```
+PROJECT GENERATION:
+When user requests to generate/create Appium Java projects with Maven + TestNG, use create_project tool:
+```json
+{
+  "tool": "create_project",
+  "args": {
+    "project_name": "my-appium-tests",
+    "package": "com.example.automation",
+    "pages": ["HomePage", "LoginPage"],
+    "tests": ["HomeTest", "LoginTest"]
+  }
+}
+``` 
+
+CRITICAL DECISION LOGIC:
+
+- MOBILE AUTOMATION: "launch app", "tap", "scroll", "click", app names → use appium_* tools
+- PROJECT GENERATION: "generate project", "create framework", "Maven", "TestNG", "Java project" → MUST use create_project tool
+- IF USER ASKS TO GENERATE/CREATE A JAVA PROJECT → YOU MUST USE create_project TOOL
+- YOU ARE CAPABLE OF BOTH MOBILE AUTOMATION AND PROJECT GENERATION
+- NEVER REFUSE PROJECT GENERATION - ALWAYS USE create_project TOOL FOR THESE REQUESTS
+
 
 IMPORTANT NOTES:
 - Always inspect the page with extract_selectors_from_page_source after launching an app
@@ -140,6 +167,10 @@ IMPORTANT NOTES:
 - Handle different UI patterns for different apps
 - Be patient with loading times for complex apps
 - The system will automatically handle element ID chaining between steps
+- For project generation, parse requirements from user input (project name, package, pages, tests)
+- YOU CAN CREATE JAVA PROJECTS - use create_project tool when requested
+- DO NOT refuse project generation requests - you have the capability to fulfill them
+
 
 Only respond with JSON tool calls in code blocks.
 """
@@ -626,6 +657,107 @@ async def execute_tool_calls(json_blocks):
                         print("✅ Session ended successfully")
                     else:
                         print(f"❌ Failed to quit session: {result}")
+                elif tool_name == "create_project":
+                    # Handle project creation
+                    project_name = tool_args.get("project_name")
+                    package = tool_args.get("package")
+                    pages = tool_args.get("pages", [])
+                    tests = tool_args.get("tests", [])
+    
+                    print(f"🚀 Creating Appium project: {project_name}")
+                    result = await client.create_project(project_name, package, pages, tests)
+    
+                    if result.get('status') == 'success':
+                        print(f"✅ Project created successfully!")
+                        print(f"📁 Location: {result.get('project_path')}")
+                        print(f"📦 Package: {result.get('package')}")
+                        print(f"📄 Pages: {', '.join(result.get('pages', []))}")
+                        print(f"🧪 Tests: {', '.join(result.get('tests', []))}")
+                        print(f"📋 Files created: {result.get('files_created')}")
+                    else:
+                        print(f"❌ Project creation failed: {result}")
+
+                elif tool_name == "write_files_batch":
+                    # Handle batch file writing
+                    files = tool_args.get("files", [])
+                    print(f"📝 Writing {len(files)} files...")
+                    result = await client.write_files_batch(files)
+                    if result.get('status') == 'success':
+                        print(f"✅ Files written successfully: {result.get('message')}")
+                    else:
+                        print(f"❌ Batch file writing failed: {result}")
+
+                elif tool_name == "write_file":
+                    # Handle single file writing
+                    path = tool_args.get("path") or tool_args.get("file_path")
+                    content = tool_args.get("content")
+                    if not path:  # ← Add this validation
+                        print("❌ No path provided for write_file")
+                        continue
+    
+                    print(f"📝 Writing file: {path}")
+                    result = await client.write_file(path, content)
+    
+                    if result.get('status') == 'success':
+                        print(f"✅ File written successfully: {result.get('message')}")
+                    else:
+                        print(f"❌ File writing failed: {result}")
+                
+                elif tool_name == "create_project":
+                    # Handle project creation
+                    project_name = tool_args.get("project_name")
+                    package = tool_args.get("package")
+                    pages = tool_args.get("pages", [])
+                    tests = tool_args.get("tests", [])
+    
+                    if not project_name:  # ← Add validation
+                        print("❌ No project_name provided for create_project")
+                        continue
+    
+                    print(f"🚀 Creating Appium project: {project_name}")
+                    result = await client.create_project(project_name, package, pages, tests)
+    
+                    if result.get('status') == 'success':
+                        print(f"✅ Project created successfully!")
+                        print(f"📁 Location: {result.get('project_path')}")
+                        print(f"📦 Package: {result.get('package')}")
+                        print(f"📄 Pages: {', '.join(result.get('pages', []))}")
+                        print(f"🧪 Tests: {', '.join(result.get('tests', []))}")
+                        print(f"📋 Files created: {result.get('files_created')}")
+                    else:
+                         print(f"❌ Project creation failed: {result}")
+
+                elif tool_name == "generate_complete_appium_project":
+                    # Handle high-level project generation
+                    project_name = tool_args.get("project_name")
+                    package = tool_args.get("package")
+                    pages = tool_args.get("pages", [])
+                    tests = tool_args.get("tests", [])
+                    if not project_name:  # ← Add this validation
+                        print("❌ No project_name provided for generate_complete_appium_project")
+                        continue
+    
+                    print(f"🚀 Generating complete Appium project: {project_name}")
+                    result = await client.generate_complete_appium_project(project_name, package, pages, tests)
+    
+                    if result.get('status') == 'success':
+                        print(f"✅ Complete project generated successfully!")
+                        details = result.get('details', {})
+                        print(f"📁 Location: {details.get('project_path')}")
+                        print(f"📦 Package: {details.get('package')}")
+                        print(f"📄 Pages: {', '.join(details.get('pages', []))}")
+                        print(f"🧪 Tests: {', '.join(details.get('tests', []))}")
+                        print(f"📋 Files created: {details.get('files_created')}")
+                        print(f"🏗️ Structure: {details.get('structure')}")
+        
+                        # Show features
+                        features = details.get('features', [])
+                        if features:
+                            print("✨ Features included:")
+                            for feature in features:
+                                print(f"  • {feature}")
+                    else:
+                        print(f"❌ Project generation failed: {result}")
                 elif tool_name in ["sleep", "wait"]:
                     seconds = tool_args.get("seconds", 5)
                     print(f"⏰ Waiting {seconds} seconds for page to load...")

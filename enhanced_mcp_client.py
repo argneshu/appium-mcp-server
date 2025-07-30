@@ -6,6 +6,20 @@ import json
 import re
 import time
 from typing import Optional, Tuple, Dict, Any, List
+import pathlib
+import sys
+import os
+
+# Import your existing handlers
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+try:
+    from tools.create_project_handler import handle_create_project_tool, infer_package_from_project
+    from tools.write_files_batch import handle_write_files_batch
+except ImportError:
+    print("⚠️ Warning: Could not import project creation tools. Make sure tools/ directory is in path.")
+    handle_create_project_tool = None
+    handle_write_files_batch = None
+    infer_package_from_project = None
 
 class EnhancedMCPClient:
     def __init__(self, process):
@@ -17,6 +31,7 @@ class EnhancedMCPClient:
         self.last_result = None  # Store last tool result for variable substitution
         self.session_active = False
         self.current_platform = None
+        self.project_root = pathlib.Path.home() / "generated-framework"
         
     def get_next_id(self):
         self.request_id += 1
@@ -1420,4 +1435,118 @@ class EnhancedMCPClient:
                     continue
     
         return {"status": "error", "message": "No alternative elements found"}
+    
+    async def write_files_batch(self, files: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Write multiple files at once using your existing handler."""
+        if handle_write_files_batch is None:
+            return {"status": "error", "message": "write_files_batch handler not available"}
+        
+        try:
+            # Use your existing handler
+            result = await handle_write_files_batch({"files": files})
+            
+            # Convert TextContent result to our format
+            if hasattr(result, 'text'):
+                if "Successfully wrote" in result.text:
+                    return {"status": "success", "message": result.text}
+                else:
+                    return {"status": "error", "message": result.text}
+            else:
+                return {"status": "success", "message": "Files written successfully"}
+                
+        except Exception as e:
+            return {"status": "error", "message": f"write_files_batch failed: {str(e)}"}
+        
+    async def write_file(self, path: str, content: str) -> Dict[str, Any]:
+        """Write a single file - fallback implementation."""
+        try:
+            target_path = self.project_root / path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"status": "success", "message": f"File written to: {target_path}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to write file: {str(e)}"}
+        
+    async def create_project(self, project_name: str, package: str = None, pages: List[str] = None, tests: List[str] = None) -> Dict[str, Any]:
+        """Create a complete Appium Java project using your existing handler."""
+        if handle_create_project_tool is None:
+            return {"status": "error", "message": "create_project handler not available"}
+        
+        try:
+            # Prepare arguments for your existing handler
+            args = {"project_name": project_name}
+            if package:
+                args["package"] = package
+            if pages:
+                args["pages"] = pages
+            if tests:
+                args["tests"] = tests
+            
+            # Use your existing handler
+            result = handle_create_project_tool(args)
+            
+            # Convert TextContent result to our format
+            if result and len(result) > 0:
+                text_content = result[0].text
+                if "✅ Project created:" in text_content:
+                    # Parse the created files list
+                    files_created = text_content.split("✅ Project created:\n")[1].split("\n")
+                    return {
+                        "status": "success",
+                        "message": f"Project '{project_name}' created successfully",
+                        "project_path": str(self.project_root / project_name),
+                        "files_created": len([f for f in files_created if f.strip()]),
+                        "pages": pages or ["SamplePage"],
+                        "tests": tests or ["SampleTest"],
+                        "package": package or (infer_package_from_project(project_name) if infer_package_from_project else "com.example.app")
+                    }
+                else:
+                    return {"status": "error", "message": text_content}
+            else:
+                return {"status": "error", "message": "No result from create_project handler"}
+                
+        except Exception as e:
+            return {"status": "error", "message": f"create_project failed: {str(e)}"}
+        
+    async def generate_complete_appium_project(self, project_name: str, package: str = None, pages: List[str] = None, tests: List[str] = None) -> Dict[str, Any]:
+        """
+        High-level API to generate a complete Appium project.
+        This responds to prompts like: "Now generate a complete Appium Java project..."
+        """
+        print(f"🚀 Generating complete Appium Java project: {project_name}")
+        
+        # Create the project structure using your existing handler
+        result = await self.create_project(project_name, package, pages, tests)
+        
+        if result.get("status") != "success":
+            return result
+        
+        print(f"✅ Project structure created successfully")
+        print(f"📁 Project location: {result.get('project_path')}")
+        print(f"📦 Package: {result.get('package')}")
+        print(f"📄 Pages created: {', '.join(result.get('pages', []))}")
+        print(f"🧪 Tests created: {', '.join(result.get('tests', []))}")
+        
+        return {
+            "status": "success",
+            "message": f"Complete Appium Java project '{project_name}' generated successfully!",
+            "details": {
+                "project_name": project_name,
+                "project_path": result.get('project_path'),
+                "package": result.get('package'),
+                "pages": result.get('pages'),
+                "tests": result.get('tests'),
+                "files_created": result.get('files_created'),
+                "structure": "Maven + TestNG framework with Page Object Model",
+                "features": [
+                    "Complete Maven POM with dependencies",
+                    "Base test class with Appium setup",
+                    "Page Object Model base classes",
+                    "TestNG configuration",
+                    "Configuration files",
+                    "Project structure ready for development"
+                ]
+            }
+        }
    
