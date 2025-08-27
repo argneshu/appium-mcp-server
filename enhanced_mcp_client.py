@@ -1437,77 +1437,65 @@ class EnhancedMCPClient:
         return {"status": "error", "message": "No alternative elements found"}
     
     async def write_files_batch(self, files: List[Dict[str, str]]) -> Dict[str, Any]:
-        """Write multiple files at once using your existing handler."""
-        if handle_write_files_batch is None:
-            return {"status": "error", "message": "write_files_batch handler not available"}
+        """Write multiple files at once using MCP server."""
+        print(f"📝 Writing {len(files)} files via MCP server...")
         
-        try:
-            # Use your existing handler
-            result = await handle_write_files_batch({"files": files})
+        result = await self.call_tool("write_files_batch", {"files": files})
+        parsed_result = self.parse_file_operation_result(result)  # Use file-specific parser
+        
+        if parsed_result.get('status') == 'success':
+            print(f"✅ Files written successfully via MCP server")
+        else:
+            print(f"❌ MCP server write_files_batch failed: {parsed_result}")
             
-            # Convert TextContent result to our format
-            if hasattr(result, 'text'):
-                if "Successfully wrote" in result.text:
-                    return {"status": "success", "message": result.text}
-                else:
-                    return {"status": "error", "message": result.text}
-            else:
-                return {"status": "success", "message": "Files written successfully"}
-                
-        except Exception as e:
-            return {"status": "error", "message": f"write_files_batch failed: {str(e)}"}
+        return parsed_result
         
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
-        """Write a single file - fallback implementation."""
-        try:
-            target_path = self.project_root / path
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(target_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            return {"status": "success", "message": f"File written to: {target_path}"}
-        except Exception as e:
-            return {"status": "error", "message": f"Failed to write file: {str(e)}"}
+        """Write a single file using MCP server."""
+        print(f"📝 Writing file: {path} via MCP server...")
+        
+        result = await self.call_tool("write_file", {"path": path, "content": content})
+        parsed_result = self.parse_file_operation_result(result)  # Use file-specific parser
+        
+        if parsed_result.get('status') == 'success':
+            print(f"✅ File written successfully via MCP server")
+        else:
+            print(f"❌ MCP server write_file failed: {parsed_result}")
+            
+        return parsed_result
         
     async def create_project(self, project_name: str, package: str = None, pages: List[str] = None, tests: List[str] = None) -> Dict[str, Any]:
-        """Create a complete Appium Java project using your existing handler."""
-        if handle_create_project_tool is None:
-            return {"status": "error", "message": "create_project handler not available"}
+        """Create a complete Appium Java project using MCP server."""
+        print(f"🚀 Creating project '{project_name}' via MCP server...")
         
-        try:
-            # Prepare arguments for your existing handler
-            args = {"project_name": project_name}
-            if package:
-                args["package"] = package
-            if pages:
-                args["pages"] = pages
-            if tests:
-                args["tests"] = tests
-            
-            # Use your existing handler
-            result = handle_create_project_tool(args)
-            
-            # Convert TextContent result to our format
-            if result and len(result) > 0:
-                text_content = result[0].text
-                if "✅ Project created:" in text_content:
-                    # Parse the created files list
-                    files_created = text_content.split("✅ Project created:\n")[1].split("\n")
-                    return {
-                        "status": "success",
-                        "message": f"Project '{project_name}' created successfully",
-                        "project_path": str(self.project_root / project_name),
-                        "files_created": len([f for f in files_created if f.strip()]),
-                        "pages": pages or ["SamplePage"],
-                        "tests": tests or ["SampleTest"],
-                        "package": package or (infer_package_from_project(project_name) if infer_package_from_project else "com.example.app")
-                    }
-                else:
-                    return {"status": "error", "message": text_content}
-            else:
-                return {"status": "error", "message": "No result from create_project handler"}
-                
-        except Exception as e:
-            return {"status": "error", "message": f"create_project failed: {str(e)}"}
+        # Prepare arguments for MCP server
+        args = {"project_name": project_name}
+        if package:
+            args["package"] = package
+        if pages:
+            args["pages"] = pages
+        if tests:
+            args["tests"] = tests
+        
+        result = await self.call_tool("create_project", args)
+        parsed_result = self.parse_file_operation_result(result)
+        
+        if parsed_result.get('status') == 'success':
+            print(f"✅ Project '{project_name}' created successfully via MCP server")
+            # Parse the success message to extract details
+            message = parsed_result.get('message', '')
+            return {
+                "status": "success",
+                "message": f"Project '{project_name}' created successfully",
+                "project_path": str(self.project_root / project_name),
+                "files_created": "Multiple files created",  # MCP server handles the count
+                "pages": pages or ["SamplePage"],
+                "tests": tests or ["SampleTest"],
+                "package": package or "com.example.app"
+            }
+        else:
+            print(f"❌ MCP server create_project failed: {parsed_result}")
+            return parsed_result
         
     async def generate_complete_appium_project(self, project_name: str, package: str = None, pages: List[str] = None, tests: List[str] = None) -> Dict[str, Any]:
         """
@@ -1549,4 +1537,55 @@ class EnhancedMCPClient:
                 ]
             }
         }
+    
+    def parse_file_operation_result(self, result) -> Dict[str, Any]:
+        """Parse tool result specifically for file operations (create_project, write_file, write_files_batch)."""
+        if isinstance(result, dict) and result.get('content'):
+            content = result['content']
+            if isinstance(content, list) and len(content) > 0:
+                content_text = content[0].get('text', '')
+                
+                # Handle success messages that start with ✅
+                if content_text.startswith('✅'):
+                    return {
+                        "status": "success",
+                        "message": content_text,
+                        "raw_response": content_text
+                    }
+                
+                # Handle error messages that start with ❌
+                elif content_text.startswith('❌'):
+                    return {
+                        "status": "error",
+                        "message": content_text
+                    }
+                
+                # Handle other success indicators for file operations
+                elif any(success_indicator in content_text for success_indicator in [
+                    'Project created', 'File written', 'Files written', 'Successfully'
+                ]):
+                    return {
+                        "status": "success",
+                        "message": content_text,
+                        "raw_response": content_text
+                    }
+                
+                # Handle error indicators
+                elif any(error_indicator in content_text.lower() for error_indicator in [
+                    'failed', 'error', 'exception', 'could not', 'unable to'
+                ]):
+                    return {
+                        "status": "error",
+                        "message": content_text
+                    }
+                
+                # Default: treat as success for file operations
+                else:
+                    return {
+                        "status": "success",
+                        "message": content_text,
+                        "raw_response": content_text
+                    }
+        
+        return {"status": "error", "message": "No valid content in response"}
    

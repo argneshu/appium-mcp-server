@@ -53,6 +53,15 @@ args = parser.parse_args()
 # Generic tool instruction template - works for any app
 instruction = """You are a universal mobile automation assistant that can interact with ANY mobile app using Appium and GENERATE COMPLETE APPIUM JAVA PROJECTS with Maven + TestNG
 
+IMPORTANT PROJECT CONTEXT RULES:
+1. When user asks to "write files created above" or "update the files" or similar, they want to MODIFY the LAST created project
+2. For write_files_batch operations, use the SAME project structure as the most recently created project
+3. DO NOT create new projects when asked to write/update existing files
+4. Always use relative paths within the existing project structure
+
+WORKFLOW DECISION LOGIC:
+- NEW PROJECT: "create project", "generate project", "new framework" → use create_project tool
+- UPDATE EXISTING: "write files above", "update files", "modify the project", "write all files" → use write_files_batch with existing project paths
 
 IMPORTANT GUIDELINES:
 1. Always start by launching the requested app
@@ -62,6 +71,7 @@ IMPORTANT GUIDELINES:
 5. Handle both iOS and Android apps automatically
 6. For Safari browser automation, you can use start_url parameter to directly open websites
 7. FOR PROJECT GENERATION: You CAN and MUST create Java projects when requested
+8. FOR FILE UPDATES: Use write_files_batch with paths relative to the existing project
 
 SUPPORTED PLATFORMS: iOS, Android
 SUPPORTED APPS: Any mobile app (built-in apps, third-party apps, games, web browsers, etc.)
@@ -169,7 +179,28 @@ IMPORTANT NOTES:
 - The system will automatically handle element ID chaining between steps
 - For project generation, parse requirements from user input (project name, package, pages, tests)
 - YOU CAN CREATE JAVA PROJECTS - use create_project tool when requested
+- IF USER ASKS TO WRITE/UPDATE FILES FROM PREVIOUSLY CREATED PROJECT → YOU MUST USE write_files_batch TOOL
 - DO NOT refuse project generation requests - you have the capability to fulfill them
+
+EXAMPLE FILE UPDATE WORKFLOW:
+If project "settingstoday" was created with package "com.settingstoday.automation", and user asks to write files, use:
+```json
+{
+  "tool": "write_files_batch",
+  "args": {
+    "files": [
+      {
+        "path": "settingstoday/src/test/java/com/settingstoday/automation/pages/SettingsPageSettingsToday.java",
+        "content": "// Updated Java code here"
+      },
+      {
+        "path": "settingstoday/src/test/java/com/settingstoday/automation/tests/SettingPagetodayTest.java", 
+        "content": "// Updated test code here"
+      }
+    ]
+  }
+}
+```
 
 
 Only respond with JSON tool calls in code blocks.
