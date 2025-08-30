@@ -9,6 +9,7 @@ from typing import Optional, Tuple, Dict, Any, List
 import pathlib
 import sys
 import os
+import subprocess
 
 # Import your existing handlers
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -148,6 +149,22 @@ class EnhancedMCPClient:
                 "play": "com.android.vending"
             }
         }
+
+         # ADD THIS: Android activity mappings - use correct activities
+        android_activities = {
+            "com.android.chrome": "com.google.android.apps.chrome.Main",
+            "com.android.settings": "com.android.settings.Settings",
+            "com.android.contacts": "com.android.contacts.activities.PeopleActivity", 
+            "com.android.dialer": "com.android.dialer.main.impl.MainActivity",
+            "com.google.android.apps.messaging": ".ui.ConversationListActivity",
+            "com.google.android.apps.photos": "com.google.android.apps.photos.home.HomeActivity",
+            "com.google.android.calculator": "com.android.calculator2.Calculator",
+            "com.google.calendar": ".AllInOneActivity",
+            "com.google.android.gm": ".ConversationListActivityGmail",
+            "com.google.android.apps.maps": "com.google.android.maps.MapsActivity",
+            "com.google.android.youtube": ".app.honeycomb.Shell$HomeActivity",
+            "com.android.vending": ".AssetBrowserActivity"
+        }
         
         # Extract app information from different possible keys
         app_name = None
@@ -187,7 +204,7 @@ class EnhancedMCPClient:
         optional_fields = [
             "app_activity", "appActivity", "start_url", "startUrl",
             "udid", "xcode_org_id", "xcodeOrgId", "wda_bundle_id", "wdaBundleId",
-            "xcode_signing_id", "xcodeSigningId"
+            "xcode_signing_id", "xcodeSigningId,""browser_name", "browserName"
         ]
         
         for field in optional_fields:
@@ -219,10 +236,37 @@ class EnhancedMCPClient:
                 normalized["app_path"] = app_path
         elif platform == "android":
             if bundle_id:
-                normalized["app_package"] = bundle_id
-                # For Android, we might need to infer the activity
-                if not app_info.get("app_activity") and not app_info.get("appActivity"):
-                    normalized["app_activity"] = f"{bundle_id}.MainActivity"  # Common pattern
+                if bundle_id:
+                # SPECIAL HANDLING: For Chrome with URLs, use browser mode
+                    if bundle_id == "com.android.chrome" and app_info.get("start_url"):
+                    # Use browser capabilities instead of app capabilities
+                        normalized["browser_name"] = "Chrome"
+                        print(f"DEBUG: Chrome browser mode enabled for URL: {app_info.get('start_url')}")
+
+                    # Don't set app_package/app_activity for browser mode
+                    else:
+                    # Regular app mode
+                        normalized["app_package"] = bundle_id
+                    # Use correct Android activity mapping
+                        if not app_info.get("app_activity") and not app_info.get("appActivity"):
+                            if bundle_id in android_activities:
+                                normalized["app_activity"] = android_activities[bundle_id]
+                            else:
+                            # Fallback to generic pattern only if no specific mapping exists
+                                 # Dynamic resolution fallback instead of guessing
+                                try:
+                                    resolved = subprocess.check_output(
+                                    ["adb", "shell", "cmd", "package", "resolve-activity", "--brief", bundle_id],
+                                    stderr=subprocess.STDOUT
+                                    ).decode().strip()
+                                    if "/" in resolved:
+                                        normalized["app_activity"] = resolved.split("/", 1)[1]
+                                        print(f"DEBUG: Dynamically resolved activity for {bundle_id}: {normalized['app_activity']}")
+                                    else:
+                                        raise ValueError("No activity found")
+                                except Exception:
+                                    print(f"WARNING: Could not resolve activity for {bundle_id}, skipping launch.")
+                                    normalized["app_activity"] = None
             elif app_path:
                 normalized["app_path"] = app_path
         

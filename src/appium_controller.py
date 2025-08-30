@@ -141,7 +141,7 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
             raise ValueError(f"Unsupported platform: {platform}")
 
         options.new_command_timeout = 300
-        options.no_reset = True
+        options.no_reset = False
         port = ensure_appium_installed_and_running()
 
         driver = webdriver.Remote(f"http://localhost:{port}", options=options)

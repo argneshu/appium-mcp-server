@@ -168,6 +168,10 @@ CRITICAL DECISION LOGIC:
 - IF USER ASKS TO GENERATE/CREATE A JAVA PROJECT → YOU MUST USE create_project TOOL
 - YOU ARE CAPABLE OF BOTH MOBILE AUTOMATION AND PROJECT GENERATION
 - NEVER REFUSE PROJECT GENERATION - ALWAYS USE create_project TOOL FOR THESE REQUESTS
+- File writing keywords: "write all files", "write files", "complete implementation", "all implementation code"
+- Project keywords: "generate project", "create framework", "Maven", "TestNG"  
+- If prompt contains BOTH project creation AND file writing keywords → use create_project THEN write_files_batch
+
 
 
 IMPORTANT NOTES:
