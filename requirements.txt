@@ -33,3 +33,11 @@ urllib3==2.4.0
 uvicorn==0.34.3
 websocket-client==1.8.0
 wsproto==1.2.0
+anthropic==0.67.0
+google-ai-generativelanguage==0.6.15
+google-api-core==2.25.1
+google-api-python-client==2.181.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-generativeai==0.8.5
+googleapis-common-protos==1.70.0
