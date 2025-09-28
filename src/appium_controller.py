@@ -329,21 +329,27 @@ def extract_selectors_from_page_source(max_elements: int = 25) -> dict:
         driver = active_session.get("driver")
         if not driver:
             return {"status": "error", "message": "No active session"}
+        try:
+            html = driver.page_source
+            soup = BeautifulSoup(html, "html.parser")
 
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-
-        preview = []
-        for tag in soup.find_all(True):
-            if len(preview) >= max_elements:
-                break
-            info = {
-                "tag": tag.name,
-                "id": tag.get("id"),
-                "class": tag.get("class"),
-                "accessibility": tag.get("aria-label") or tag.get("aria-labelledby")
-            }
-            preview.append({k: v for k, v in info.items() if v})
+            preview = []
+            for tag in soup.find_all(True):
+                if len(preview) >= max_elements:
+                    break
+                info = {
+                    "tag": tag.name,
+                    "id": tag.get("id"),
+                    "class": tag.get("class"),
+                    "accessibility": tag.get("aria-label") or tag.get("aria-labelledby")
+                }
+                preview.append({k: v for k, v in info.items() if v})
+        except Exception as page_source_error:
+            if "waitForQuiescenceIncludingAnimationsIdle" in str(page_source_error):
+                # Use alternative method
+                return extract_selectors_alternative(max_elements)
+            else:
+                raise page_source_error
 
         return {
             "status": "success",
@@ -436,20 +442,27 @@ def get_page_source(full: bool = False) -> dict:
         driver = active_session.get("driver")
         if not driver:
             return {"status": "error", "message": "No active session"}
+        
+        try:
+            source = driver.page_source
+     
+            if not full:
+                # 🔐 Tighter Claude-safe truncation
+                source = source.encode("utf-8", errors="ignore").decode("utf-8")  # sanitize
+                max_len = 10000  # much safer default
+                if len(source) > max_len:
+                    source = source[:max_len] + "\n... [truncated]"
 
-        source = driver.page_source
-
-        if not full:
-            # 🔐 Tighter Claude-safe truncation
-            source = source.encode("utf-8", errors="ignore").decode("utf-8")  # sanitize
-            max_len = 10000  # much safer default
-            if len(source) > max_len:
-                source = source[:max_len] + "\n... [truncated]"
-
-        return {
-            "status": "success",
-            "page_source": source
-        }
+            return {
+                "status": "success",
+                "page_source": source
+            }
+        except Exception as page_error:
+            if "waitForQuiescenceIncludingAnimationsIdle" in str(page_error):
+                # Use alternative method
+                return get_page_source_alternative(full)
+            else:
+                raise page_error
 
     except Exception as e:
         return {
@@ -692,6 +705,113 @@ def handle_ios_alert():
             return {"status": "success", "message": "✅ Tapped 'Allow' button"}
         except Exception:
             return {"status": "error", "message": "⚠️ No system alert or 'Allow' button found"}
+        
+def extract_selectors_alternative(max_elements: int = 25) -> dict:
+    """Alternative selector extraction without page_source"""
+    try:
+        driver = active_session.get("driver")
+        if not driver:
+            return {"status": "error", "message": "No active session"}
+
+        selectors = []
+        
+        # Find elements by common types
+        element_types = [
+            "XCUIElementTypeButton",
+            "XCUIElementTypeTextField",
+            "XCUIElementTypeStaticText",
+            "XCUIElementTypeCell",
+            "XCUIElementTypeImage"
+        ]
+        
+        for element_type in element_types:
+            try:
+                elements = driver.find_elements("xpath", f"//{element_type}")
+                for i, element in enumerate(elements[:5]):  # Limit per type
+                    try:
+                        info = {
+                            "tag": element_type,
+                            "id": element.get_attribute("name"),
+                            "accessibility": element.get_attribute("label"),
+                            "value": element.get_attribute("value")
+                        }
+                        selectors.append({k: v for k, v in info.items() if v})
+                        
+                        if len(selectors) >= max_elements:
+                            break
+                    except:
+                        continue
+                        
+                if len(selectors) >= max_elements:
+                    break
+            except:
+                continue
+                
+        return {"status": "success", "selectors": selectors}
+        
+    except Exception as e:
+        return {
+            "status": "error", 
+            "error_type": type(e).__name__,
+            "message": f"Failed to extract selectors: {str(e)}"
+        }
+
+def get_page_source_alternative(full: bool = False) -> dict:
+    """Alternative page source using element inspection"""
+    try:
+        driver = active_session.get("driver")
+        if not driver:
+            return {"status": "error", "message": "No active session"}
+
+        # Build XML-like structure from direct element queries
+        xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>']
+        xml_parts.append('<AppiumAUT>')
+        
+        try:
+            # Get app hierarchy using find_elements
+            root_elements = driver.find_elements("xpath", "//*")
+            
+            for element in root_elements[:50 if not full else 200]:
+                try:
+                    tag_name = element.tag_name or "XCUIElementTypeOther"
+                    name = element.get_attribute("name") or ""
+                    label = element.get_attribute("label") or ""
+                    value = element.get_attribute("value") or ""
+                    
+                    xml_parts.append(f'<{tag_name}')
+                    if name:
+                        xml_parts.append(f' name="{name}"')
+                    if label:
+                        xml_parts.append(f' label="{label}"')
+                    if value:
+                        xml_parts.append(f' value="{value}"')
+                    xml_parts.append('/>')
+                    
+                except:
+                    continue
+                    
+        except Exception as e:
+            xml_parts.append(f'<!-- Error getting elements: {str(e)} -->')
+            
+        xml_parts.append('</AppiumAUT>')
+        source = ''.join(xml_parts)
+
+        if not full:
+            max_len = 10000
+            if len(source) > max_len:
+                source = source[:max_len] + "\n... [truncated]"
+
+        return {
+            "status": "success",
+            "page_source": source
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": f"Failed to get page source: {str(e)}"
+        }
         
 
 
