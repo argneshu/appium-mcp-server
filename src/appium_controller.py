@@ -55,6 +55,8 @@ def start_session(platform: str, device_name: str, app_path: str = "", bundle_id
                 platform_version = get_latest_ios_simulator_version()
             options.platform_version = platform_version
             options.automation_name = "XCUITest"
+            options.set_capability("appium:waitForIdleTimeout", 0)
+            options.set_capability("appium:waitForQuiescence", False)
             
             udid_is_valid = bool(udid) and isinstance(udid, str)
             device_name_looks_like_udid = (
