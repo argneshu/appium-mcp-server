@@ -5,9 +5,8 @@ __pycache__/
 .git/
 *.log
 
-# Allow .venv folder and its contents
-!.venv
-!.venv/**
+# Exclude .venv - rebuilt on install via postinstall/bootstrap.sh
+.venv/
 
 # Exclude bootstrap scripts (dev-only)
 bootstrap.sh
