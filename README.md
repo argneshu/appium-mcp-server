@@ -78,6 +78,22 @@ npx available in PATH
 }
 ```
 
+### Option 3: NVM Users (Recommended if Option 2 fails)
+
+```json
+{
+  "mcpServers": {
+    "appium-mcp-server": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "export NVM_DIR=\"$HOME/.nvm\" && [ -s \"/opt/homebrew/opt/nvm/nvm.sh\" ] && . \"/opt/homebrew/opt/nvm/nvm.sh\" && nvm use 20 >/dev/null && npx -y appium-mcp-server@latest"
+      ]
+    }
+  }
+}
+```
+
 ---
 
 ### 🔹 4. 💪 Advanced / stable (BEST for reliability)
