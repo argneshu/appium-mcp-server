@@ -34,7 +34,7 @@ appium server --port 4723
 
 ## Installation & Usage
 
-### Option 1: Using npx (Recommended)
+### Option 1: Using npx
 
 Add this configuration to your Claude Desktop config file:
 
@@ -48,6 +48,119 @@ Add this configuration to your Claude Desktop config file:
   }
 }
 ```
+Requirements
+Node.js >= 18 installed globally
+npx available in PATH
+
+
+---
+
+### 🔹 2. ⚠️ Important note (THIS IS KEY)
+
+```md
+> ⚠️ Note:
+> If you are using Node via NVM, Claude Desktop may not detect it automatically.
+> In that case, use Option 2 below.
+
+### Option 2: NVM Users (Recommended if Option 1 fails)
+
+```json
+{
+  "mcpServers": {
+    "appium-mcp-server": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "export NVM_DIR=\"$HOME/.nvm\" && source \"$NVM_DIR/nvm.sh\" && npx -y appium-mcp-server@latest"
+      ]
+    }
+  }
+}
+```
+
+---
+
+### 🔹 4. 💪 Advanced / stable (BEST for reliability)
+
+```md
+### Option 3: Use Node directly (Most reliable)
+
+```json
+{
+  "mcpServers": {
+    "appium-mcp-server": {
+      "command": "/path/to/your/node",
+      "args": [
+        "/path/to/appium-mcp-server/bin/appium-mcp-server.js"
+      ]
+    }
+  }
+}
+```
+To find your Node path:
+which node
+
+
+---
+
+## 🧠 Why this is the BEST approach
+
+You cover:
+
+| User type | Works? |
+|----------|--------|
+| Beginner | ✅ npx |
+| NVM user | ✅ bash fix |
+| Power user | ✅ direct node |
+
+---
+
+## 🚀 Pro-level improvement (optional but powerful)
+
+Add troubleshooting:
+
+```md
+### Troubleshooting
+
+If you see errors like:
+- "appium not found"
+- "cannot connect to Appium"
+
+Try:
+
+```bash
+which node
+which npx
+
+If paths point to NVM, use Option 2.
+
+---
+
+## 🎯 Final recommendation
+
+👉 Keep `npx` as default (good UX)  
+👉 BUT always add:
+- NVM warning  
+- fallback option  
+
+---
+
+## 💬 Real talk
+
+Right now your README is:
+
+> “Works in ideal world”
+
+You want:
+
+> “Works for 95% of real developers”
+
+---
+
+If you want, I can:
+- Rewrite your **full README professionally**
+- Or optimize it for **GitHub + npm publishing (best practices)** 👍
+
 ### ⚙️ System Setup Instructions for Apple M1/M2 and Windows
 
 #### 🍎 Apple Silicon (M1/M2) – macOS
