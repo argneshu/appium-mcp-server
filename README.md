@@ -145,22 +145,6 @@ If paths point to NVM, use Option 2.
 
 ---
 
-## 💬 Real talk
-
-Right now your README is:
-
-> “Works in ideal world”
-
-You want:
-
-> “Works for 95% of real developers”
-
----
-
-If you want, I can:
-- Rewrite your **full README professionally**
-- Or optimize it for **GitHub + npm publishing (best practices)** 👍
-
 ### ⚙️ System Setup Instructions for Apple M1/M2 and Windows
 
 #### 🍎 Apple Silicon (M1/M2) – macOS
