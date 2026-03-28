@@ -163,37 +163,8 @@ Paste the following into `mcp.json`:
 
 ---
 
-## 🚀 Pro-level improvement (optional but powerful)
 
-Add troubleshooting:
-
-```md
-### Troubleshooting
-
-If you see errors like:
-- "appium not found"
-- "cannot connect to Appium"
-
-Try:
-
-```bash
-which node
-which npx
-
-If paths point to NVM, use Option 2.
-
----
-
-## 🎯 Final recommendation
-
-👉 Keep `npx` as default (good UX)  
-👉 BUT always add:
-- NVM warning  
-- fallback option  
-
----
-
-### ⚙️ System Setup Instructions for Apple M1/M2 and Windows
+### ⚙️ Local System Setup Instructions for Apple M1/M2 and Windows
 
 #### 🍎 Apple Silicon (M1/M2) – macOS
 
