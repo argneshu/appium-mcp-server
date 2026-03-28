@@ -131,6 +131,38 @@ You cover:
 
 ---
 
+### Option 4: VS Code Local Setup (Copilot / Cursor)
+
+If you want to use `appium-mcp-server` with **GitHub Copilot or Cursor inside your existing VS Code project**, follow these steps:
+
+At the **root of your existing project**, create a `.vscode` folder (if it doesn't exist) and inside it create a file named `mcp.json`:
+```
+your-existing-project/
+└── .vscode/
+    └── mcp.json
+```
+
+Paste the following into `mcp.json`:
+```jsonc
+{
+  "servers": {
+    "appium-mcp-prod": {
+      "command": "/Users/username/appium-mcp-server/.venv/bin/python",
+      "args": ["src/mcp_server.py"],
+      "cwd": "~/appium-mcp-server",
+      "env": {
+        "APPIUM_PORT": "4723"
+      }
+    }
+  }
+}
+```
+
+> ⚠️ Replace `/Users/username/` with the actual path where you cloned `appium-mcp-server`.  
+> Run `pwd` inside the cloned folder to get the exact path.
+
+---
+
 ## 🚀 Pro-level improvement (optional but powerful)
 
 Add troubleshooting:
