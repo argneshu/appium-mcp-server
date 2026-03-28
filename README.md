@@ -131,7 +131,7 @@ You cover:
 
 ---
 
-### Option 4: VS Code Local Setup (Copilot / Cursor)
+### Option 4: VS Code Local Setup (Github Copilot / Cursor)
 
 If you want to use `appium-mcp-server` with **GitHub Copilot or Cursor inside your existing VS Code project**, follow these steps:
 
